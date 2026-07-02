@@ -1,0 +1,6 @@
+{
+  "name": "تطبيق مدرسي",
+  "description": "تطبيق مدرسي لتنظيم وجدولة الحصص الدراسية للطلاب والمعلمين، مع إمكانيات الطباعة وتصدير الجداول بصيغة PDF وصور عالية الجودة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
