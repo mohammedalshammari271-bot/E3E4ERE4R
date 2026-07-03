@@ -129,6 +129,9 @@ function switchRole(role) {
     } else {
       document.getElementById('student-dashboard').classList.add('hidden');
       document.getElementById('student-onboarding').classList.remove('hidden');
+      if (typeof window.updateOnboardSubjects === 'function') {
+        window.updateOnboardSubjects();
+      }
     }
   } else if (role === 'teacher') {
     document.getElementById('teacher-section').classList.remove('hidden');
@@ -158,7 +161,9 @@ function handleStudentOnboarding(e) {
   const division = document.getElementById('onboard-division').value.trim() || 'أ';
   const target = parseFloat(document.getElementById('onboard-target').value) || 95;
 
-  const profile = { studentName: name, gradeClass: grade, division, expectedAverage: target, stage: grade.includes('الابتدائي') ? 'elementary' : grade.includes('المتوسط') ? 'middle' : 'preparatory' };
+  const gradeObj = window.IRAQI_GRADES.find(g => g.gradeName === grade);
+  const stageVal = gradeObj ? (gradeObj.stageId === 'primary' ? 'elementary' : gradeObj.stageId === 'intermediate' ? 'middle' : 'preparatory') : (grade.includes('الابتدائي') ? 'elementary' : grade.includes('المتوسط') ? 'middle' : 'preparatory');
+  const profile = { studentName: name, gradeClass: grade, division, expectedAverage: target, stage: stageVal };
   state.studentProfile = profile;
   window.saveStudentProfile(profile);
 
@@ -190,17 +195,143 @@ function handleStudentOnboarding(e) {
 }
 
 // Clear account
-function clearStudentProfileData() {
-  if (confirm('⚠️ تنبيه هام: هل أنت متأكد من مسح جميع بيانات بروفايلك وجداولك الحالية وبدء الإعداد من جديد؟')) {
-    window.clearStudentProfile();
-    localStorage.removeItem('madrasati_schedules_v2');
-    localStorage.removeItem('madrasati_active_schedule_id_v2');
-    localStorage.removeItem('madrasati_curriculum_checked_v2');
+window.clearStudentProfileData = function() {
+  const modal = document.getElementById('modal-confirm-reset');
+  if (modal) {
+    modal.showModal();
+  } else {
+    if (confirm('⚠️ تنبيه هام: هل أنت متأكد من مسح جميع بيانات بروفايلك وجداولك الحالية وبدء الإعداد من جديد؟')) {
+      window.confirmResetApplicationData();
+    }
+  }
+};
+
+window.closeConfirmResetModal = function() {
+  const modal = document.getElementById('modal-confirm-reset');
+  if (modal) {
+    modal.close();
+  }
+};
+
+window.confirmResetApplicationData = function() {
+  try {
+    const keysToClear = [
+      'madrasati_student_profile_v2',
+      'madrasati_schedules_v2',
+      'madrasati_active_schedule_id_v2',
+      'madrasati_user_role_v2',
+      'madrasati_curriculum_tree_v2',
+      'madrasati_teacher_lessons_v2',
+      'madrasati_teacher_schedules_v2',
+      'madrasati_active_teacher_schedule_id_v2',
+      'exam_session',
+      'exam_students',
+      'exam_halls',
+      'exam_proctors',
+      'madrasati_curriculum_checked_v2'
+    ];
+
+    keysToClear.forEach(key => {
+      localStorage.removeItem(key);
+    });
+
+    sessionStorage.clear();
+
+    if (window.indexedDB && window.indexedDB.databases) {
+      window.indexedDB.databases().then(dbs => {
+        dbs.forEach(db => {
+          if (db.name) {
+            window.indexedDB.deleteDatabase(db.name);
+          }
+        });
+      }).catch(err => {
+        console.error("Error clearing IndexedDB databases:", err);
+      });
+    }
+
     state.studentProfile = null;
     state.schedules = [];
     state.currentScheduleId = '';
     state.curriculumChecked = {};
+    state.teacherLessons = [];
+    state.examStudents = [];
+    state.examHalls = [];
+    state.examProctors = [];
+
+    window.closeConfirmResetModal();
+    alert('✓ تم مسح جميع بيانات التطبيق بنجاح وإعادة الضبط للوضع الافتراضي.');
+
     switchRole('student');
+  } catch (error) {
+    console.error("Critical error during application reset:", error);
+    alert('⚠️ حدث خطأ أثناء مسح بعض البيانات: ' + error.message);
+  }
+};
+
+window.updateOnboardSubjects = function() {
+  const selectedGrade = document.getElementById('onboard-grade')?.value;
+  const gradeObj = window.IRAQI_GRADES.find(g => g.gradeName === selectedGrade);
+  const container = document.getElementById('onboard-target-container');
+  if (container) {
+    if (gradeObj && gradeObj.supportsPredictedAverage) {
+      container.style.display = 'block';
+      document.getElementById('onboard-target').required = true;
+    } else {
+      container.style.display = 'none';
+      document.getElementById('onboard-target').required = false;
+    }
+  }
+};
+
+function toggleGradeSpecificFeatures() {
+  if (!state.studentProfile) return;
+  const gradeName = state.studentProfile.gradeClass;
+  const gradeObj = window.IRAQI_GRADES.find(g => g.gradeName === gradeName);
+  if (!gradeObj) return;
+
+  // 1. Check Predicted Average (ميزة المعدل المتوقع)
+  const targetAvgBlock = document.getElementById('student-profile-target')?.parentElement;
+  if (targetAvgBlock) {
+    if (gradeObj.supportsPredictedAverage) {
+      targetAvgBlock.style.display = 'block';
+    } else {
+      targetAvgBlock.style.display = 'none';
+    }
+  }
+
+  // Hide/Show "معدلك المستهدف بالوزاري" in onboarding if the user resets or starts onboarding
+  const onboardTargetBlock = document.getElementById('onboard-target-container');
+  if (onboardTargetBlock) {
+    const selectedOnboardGrade = document.getElementById('onboard-grade')?.value;
+    const onboardGradeObj = window.IRAQI_GRADES.find(g => g.gradeName === selectedOnboardGrade);
+    if (onboardGradeObj && onboardGradeObj.supportsPredictedAverage) {
+      onboardTargetBlock.style.display = 'block';
+      document.getElementById('onboard-target').required = true;
+    } else {
+      onboardTargetBlock.style.display = 'none';
+      document.getElementById('onboard-target').required = false;
+    }
+  }
+
+  // 2. Ministerial features toggling
+  // If the student's grade does not support ministerial plans/questions:
+  // - Disable or remove option with value "ministerial" in cell editor and lesson forms
+  const cellTypeSelect = document.getElementById('edit-cell-type');
+  if (cellTypeSelect) {
+    const ministerialOpt = cellTypeSelect.querySelector('option[value="ministerial"]');
+    if (ministerialOpt) {
+      ministerialOpt.style.display = gradeObj.supportsMinisterialPlans ? 'block' : 'none';
+      ministerialOpt.disabled = !gradeObj.supportsMinisterialPlans;
+    }
+  }
+
+  const lessonTypeSelect = document.getElementById('form-lesson-type');
+  if (lessonTypeSelect) {
+    const ministerialOpt = lessonTypeSelect.querySelector('option[value="ministerial"]');
+    if (ministerialOpt) {
+      ministerialOpt.style.display = gradeObj.supportsMinisterialPlans ? 'block' : 'none';
+      ministerialOpt.disabled = !gradeObj.supportsMinisterialPlans;
+    }
   }
 }
 
@@ -210,6 +341,8 @@ function renderStudentProfileDetails() {
   document.getElementById('student-profile-name').innerText = state.studentProfile.studentName;
   document.getElementById('student-profile-grade').innerText = state.studentProfile.gradeClass;
   document.getElementById('student-profile-target').innerText = `${state.studentProfile.expectedAverage}%`;
+  
+  toggleGradeSpecificFeatures();
 }
 
 // Populate schedules Picker
@@ -510,7 +643,7 @@ function showWizardPane(step) {
 
   // Buttons toggle
   document.getElementById('btn-wiz-prev').classList.toggle('hidden', step === 1);
-  document.getElementById('btn-wiz-next').innerText = step === 3 ? "✓ توليد الجدول المخصص" : "التالي ➔";
+  document.getElementById('btn-wiz-next').innerText = step === 3 ? "✓ توليد الجدول المخصص" : "التالي ←";
 }
 
 function handleWizardNext() {
@@ -850,13 +983,25 @@ function getLocalPlannerResponse(message, context) {
         { label: '📐 الرياضيات', value: 'START_EM_MATH' },
         { label: '📝 اللغة العربية', value: 'START_EM_ARABIC' }
       ];
-    } else if (cleaned.includes('baccalaureate_tips') || cleaned.includes('نصائح')) {
+    } else if (cleaned.includes('baccalaureate_tips') || cleaned.includes('school_tips') || cleaned.includes('نصائح')) {
       detectedIntent = 'baccalaureate_tips';
-      replyText = `💡 **إرشادات وتوصيات ذهبية لطلبة البكالوريا والصفوف المنتهية في العراق:**
-١. **الدراسة من الوزاريات:** ٧٠٪ إلى ٨٠٪ من أسئلة الامتحانات الوزارية تتكرر أفكارها من السنوات السابقة بانتظام.
-٢. **أوقات المذاكرة الذهبية:** الذاكرة تكون في أعلى مستوياتها نشاطاً في الصباح الباكر وعقب صلاة الفجر. تجنب السهر تماماً.
-٣. **تقنية الطماطم (البومودورو):** ادرس لمدة ٤٥ دقيقة تليها ١٠-١٥ دقيقة راحة لاستعادة النشاط الذهني.
-٤. **جدول الطوارئ للامتحانات:** إذا كان لديك تراكم، اطلب من المساعد توليد "خطة طوارئ" لتوزيع الفصول والمواد فوراً بالتساوي.`;
+      const gradeName = state.studentProfile ? state.studentProfile.gradeClass : '';
+      const gradeObj = window.IRAQI_GRADES.find(g => g.gradeName === gradeName);
+      const hasMinisterial = gradeObj ? gradeObj.supportsMinisterialPlans : true;
+
+      if (hasMinisterial) {
+        replyText = `💡 **إرشادات وتوصيات ذهبية لطلبة الصفوف المنتهية والمراجعة الوزارية في العراق:**
+١. **الدراسة من الوزاريات:** الأفكار تتكرر بنسبة كبيرة من الامتحانات والأسئلة الوزارية السابقة بانتظام.
+٢. **أوقات المذاكرة الذهبية:** الذاكرة تكون في أعلى مستوياتها نشاطاً في الصباح الباكر وعقب الفجر. تجنب السهر تماماً.
+٣. **تقنية البومودورو:** ادرس لمدة ٤٥ دقيقة تليها ١٠-١٥ دقيقة راحة لاستعادة طاقتك وتركيزك الذهني.
+٤. **مخطط خطة الطوارئ:** إذا واجهت تراكماً بالدروس، اطلب فوراً تفعيل "خطة الطوارئ" لتوزيع الفصول المتبقية بنجاح وتوازن.`;
+      } else {
+        replyText = `💡 **إرشادات وتوصيات ذهبية للتفوق الدراسي المتميز والامتحانات المدرسية:**
+١. **فهم الأساسيات والمذاكرة أولاً بأول:** المذاكرة بانتظام تحميك تماماً من تراكم المواد في نهاية الفصل الدراسي.
+٢. **المراجعة الدورية للملخصات:** مراجعة العناوين وحل التمارين نهاية كل فصل تضمن ثبات الفهم المتميز في ذاكرتك.
+٣. **أوقات المذاكرة الذهبية:** تجنب الدراسة أثناء الإرهاق. المذاكرة في الصباح الباكر أو بعد راحة كافية هي الأفضل على الإطلاق.
+٤. **تنظيم الحصص المدرسية:** التزم بجدولك اليومي المحسوب ونوّع في أنماط المذاكرة (دراسة، مراجعة، حل تمارين).`;
+      }
     } else {
       replyText = `فهمت استفسارك يا بطل! بصفتي المساعد الذكي المخصص لصف **${context.studentContext.gradeClass || 'السادس العلمي'}**، لقد قمت بتحليل دراستك وجدولك الحالي.
 بإمكاني تقديم إرشادات مخصصة للمذاكرة، أو توليد خطة طوارئ إنقاذية فورية، أو اقتراح أوقات المراجعة المضمونة بالوزاري.`;
@@ -1094,7 +1239,7 @@ function renderStudentChat() {
     <!-- Input Form -->
     <form id="student-chat-form-el" onsubmit="handleSendStudentChatMessage(event)" class="bg-white p-3 border-t border-[#D9D3F0] flex items-center gap-2">
       <input type="text" id="student-chat-text-input" placeholder="اكتب سؤالك أو استفسارك هنا..." class="flex-1 px-3 py-2 border border-[#D9D3F0] rounded-xl outline-none text-xs">
-      <button type="submit" class="p-2.5 bg-brand text-white rounded-xl shadow cursor-pointer font-black hover:bg-brand-dark transition-all">➔</button>
+      <button type="submit" class="p-2.5 bg-brand text-white rounded-xl shadow cursor-pointer font-black hover:bg-brand-dark transition-all">←</button>
     </form>
   `;
 
@@ -1646,12 +1791,22 @@ function populateTeacherRoleDropdowns() {
   // Grades Form and Filters
   const gradeFormSelect = document.getElementById('form-lesson-grade');
   const gradeFilterSelect = document.getElementById('teacher-filter-grade');
-  gradeFormSelect.innerHTML = '';
-  gradeFilterSelect.innerHTML = '<option value="all">عرض جميع الصفوف المتاحة</option>';
-  p.grades.forEach(g => {
-    gradeFormSelect.innerHTML += `<option value="${g}">${g}</option>`;
-    gradeFilterSelect.innerHTML += `<option value="${g}">${g}</option>`;
-  });
+  if (gradeFormSelect) {
+    gradeFormSelect.innerHTML = window.generateGradesOptionsHTML(false);
+  }
+  if (gradeFilterSelect) {
+    gradeFilterSelect.innerHTML = window.generateGradesOptionsHTML(true, 'عرض جميع الصفوف المتاحة');
+  }
+
+  // Populate Exam session and Sector grade selectors
+  const examGradeSelect = document.getElementById('exam-grade');
+  if (examGradeSelect) {
+    examGradeSelect.innerHTML = window.generateGradesOptionsHTML(false);
+  }
+  const sectorGradeSelect = document.getElementById('sector-grade');
+  if (sectorGradeSelect) {
+    sectorGradeSelect.innerHTML = window.generateGradesOptionsHTML(false);
+  }
 
   // Divisions Form
   const divFormSelect = document.getElementById('form-lesson-division');
@@ -2940,6 +3095,176 @@ function renderProctorsDistributionTable() {
 }
 
 // PRINT AND EXPORT CSV FILE HELPERS FOR STEP 8
+window.openExportPreviewModal = function() {
+  const modal = document.getElementById('modal-export-preview');
+  if (!modal) return;
+
+  // 1. Render Seating Maps (Structure and Seat layout) inside preview-seating-maps
+  const mapsContainer = document.getElementById('preview-seating-maps');
+  mapsContainer.innerHTML = '';
+  
+  if (state.examHalls.length === 0) {
+    mapsContainer.innerHTML = `<div class="p-4 text-center text-slate-400 font-bold">لا توجد قاعات مسجلة.</div>`;
+  } else {
+    state.examHalls.forEach(hall => {
+      const block = document.createElement('div');
+      block.className = "p-3 bg-white border border-slate-250 rounded-xl space-y-2";
+      
+      block.innerHTML = `
+        <h5 class="font-bold text-slate-700 text-xs flex items-center justify-between border-b border-slate-100 pb-1">
+          <span>🏫 ${hall.name}</span>
+          <span class="text-[10px] text-slate-400 font-normal">الأبعاد: ${hall.rowsCount} صفوف × ${hall.colsCount} أعمدة</span>
+        </h5>
+        <div class="grid gap-1 p-1 text-center font-bold" style="grid-template-columns: repeat(${hall.colsCount}, minmax(0, 1fr))">
+          <!-- Seats boxes populate -->
+        </div>
+      `;
+
+      const grid = block.querySelector('.grid');
+      hall.seats.forEach(seat => {
+        const box = document.createElement('div');
+        box.className = "aspect-square rounded-lg flex flex-col items-center justify-center border text-[8px] font-bold p-0.5 leading-tight";
+        
+        let bgClass = 'bg-slate-50 text-slate-300 border-slate-100';
+        let title = `ر:${seat.row+1}-ع:${seat.col+1}`;
+        let nameSpan = '';
+
+        if (seat.status === 'damaged') {
+          bgClass = 'bg-red-50 text-red-500 border-red-100';
+          title = 'معطل';
+        } else if (seat.status === 'spacing') {
+          bgClass = 'bg-amber-50 text-amber-500 border-amber-100';
+          title = 'مستبعد';
+        } else if (seat.status === 'corridor') {
+          bgClass = 'bg-slate-100 text-slate-300';
+          title = 'ممر';
+        } else if (seat.studentId1) {
+          bgClass = 'bg-emerald-500 text-white border-emerald-600';
+          const st = state.examStudents.find(s => s.id === seat.studentId1);
+          title = st ? st.name : 'طالب';
+          nameSpan = st ? `<span class="block text-[7px] opacity-90">${st.rollNumber}</span>` : '';
+        }
+
+        box.className += ` ${bgClass}`;
+        box.innerHTML = `
+          <span class="block truncate max-w-[50px] font-extrabold">${title}</span>
+          ${nameSpan}
+        `;
+        grid.appendChild(box);
+      });
+
+      mapsContainer.appendChild(block);
+    });
+  }
+
+  // 2. Render Seating Cards inside preview-student-cards
+  const cardsContainer = document.getElementById('preview-student-cards');
+  cardsContainer.innerHTML = '';
+  
+  const sess = state.examSession || { schoolName: 'المدرسة الكبرى', examTitle: 'البكالوريا', attempt: 'الأول' };
+  let cardCount = 0;
+
+  state.examHalls.forEach(hall => {
+    hall.seats.forEach(seat => {
+      if (seat.studentId1) {
+        const student = state.examStudents.find(s => s.id === seat.studentId1);
+        if (student) {
+          cardCount++;
+          const card = document.createElement('div');
+          card.className = "p-3 bg-white border border-slate-200 rounded-xl space-y-1.5 text-[10px] shadow-sm";
+          card.innerHTML = `
+            <div class="flex items-center justify-between border-b border-slate-100 pb-1 font-bold text-slate-400">
+              <span class="truncate max-w-[90px]">${sess.schoolName}</span>
+              <span class="bg-indigo-50 text-indigo-700 px-1 rounded text-[8px]">${sess.attempt}</span>
+            </div>
+            <div class="text-center">
+              <h6 class="font-extrabold text-brand-dark text-[11px] truncate">${student.name}</h6>
+              <div class="font-mono text-[9px] text-[#5B2596] font-black">${student.rollNumber}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-1 text-[8px] text-slate-500 font-bold border-t border-dashed border-slate-100 pt-1">
+              <div>🏫 القاعة: <span class="text-slate-700">${hall.name}</span></div>
+              <div>📍 المقعد: <span class="text-slate-700">ص${seat.row+1}-ع${seat.col+1}</span></div>
+            </div>
+          `;
+          cardsContainer.appendChild(card);
+        }
+      }
+    });
+  });
+
+  if (cardCount === 0) {
+    cardsContainer.innerHTML = `<div class="p-4 text-center text-slate-400 font-bold col-span-2">يرجى تشغيل التوزيع أولاً في الخطوة السابعة لتوليد بطاقات المقاعد الشاغرة.</div>`;
+  }
+
+  // 3. Render Proctors assigned inside preview-proctors-table
+  const proctorsContainer = document.getElementById('preview-proctors-table');
+  proctorsContainer.innerHTML = '';
+
+  const table = document.createElement('table');
+  table.className = "w-full text-center border-collapse text-[10px]";
+  table.innerHTML = `
+    <thead>
+      <tr class="bg-slate-50 border-b border-slate-200 font-black text-slate-600">
+        <th class="p-2 text-right">المراقب</th>
+        <th class="p-2">الدور والمهمة</th>
+        <th class="p-2">القاعة المسندة</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  let proctorCount = 0;
+
+  state.examProctors.forEach(pr => {
+    proctorCount++;
+    const tr = document.createElement('tr');
+    tr.className = "border-b border-slate-100 hover:bg-slate-50 font-bold text-slate-600";
+    
+    let roleText = 'احتياط عام';
+    let hallText = 'غرفة الإشراف';
+
+    if (pr.role === 'hall') {
+      const hall = state.examHalls.find(h => h.id === pr.assignedHallId);
+      roleText = 'مراقب رئيسي';
+      hallText = hall ? hall.name : 'قاعة محذوفة';
+    } else if (pr.role === 'sector') {
+      const hall = state.examHalls.find(h => h.id === pr.assignedHallId);
+      roleText = 'مراقب قطاع';
+      hallText = hall ? hall.name : 'قاعة محذوفة';
+    }
+
+    tr.innerHTML = `
+      <td class="p-2 text-right font-extrabold text-slate-800">${pr.name}</td>
+      <td class="p-2 text-indigo-600">${roleText}</td>
+      <td class="p-2">${hallText}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (proctorCount === 0) {
+    proctorsContainer.innerHTML = `<div class="p-4 text-center text-slate-400 font-bold">لم يسند مراقبون بعد.</div>`;
+  } else {
+    proctorsContainer.appendChild(table);
+  }
+
+  modal.showModal();
+};
+
+window.closeExportPreviewModal = function() {
+  const modal = document.getElementById('modal-export-preview');
+  if (modal) {
+    modal.close();
+  }
+};
+
+window.confirmAndPrintExam = function() {
+  const modal = document.getElementById('modal-export-preview');
+  if (modal) {
+    modal.close();
+  }
+  window.print();
+};
+
 function printOfficialExamDocuments() {
   window.print();
 }

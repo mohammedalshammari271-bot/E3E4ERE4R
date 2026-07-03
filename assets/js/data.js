@@ -12,6 +12,186 @@ window.THEME_COLORS = {
   cardBg: '#FFFFFF',
 };
 
+window.IRAQI_GRADES = [
+  // المرحلة الابتدائية
+  {
+    stageId: "primary",
+    stageName: "المرحلة الابتدائية",
+    gradeId: "primary_1",
+    gradeName: "الأول الابتدائي",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "primary",
+    stageName: "المرحلة الابتدائية",
+    gradeId: "primary_2",
+    gradeName: "الثاني الابتدائي",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "primary",
+    stageName: "المرحلة الابتدائية",
+    gradeId: "primary_3",
+    gradeName: "الثالث الابتدائي",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "primary",
+    stageName: "المرحلة الابتدائية",
+    gradeId: "primary_4",
+    gradeName: "الرابع الابتدائي",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "primary",
+    stageName: "المرحلة الابتدائية",
+    gradeId: "primary_5",
+    gradeName: "الخامس الابتدائي",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "primary",
+    stageName: "المرحلة الابتدائية",
+    gradeId: "primary_6",
+    gradeName: "السادس الابتدائي",
+    branch: null,
+    isTerminalGrade: true,
+    supportsMinisterialPlans: true,
+    supportsPredictedAverage: false
+  },
+  // المرحلة المتوسطة
+  {
+    stageId: "intermediate",
+    stageName: "المرحلة المتوسطة",
+    gradeId: "intermediate_1",
+    gradeName: "الأول المتوسط",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "intermediate",
+    stageName: "المرحلة المتوسطة",
+    gradeId: "intermediate_2",
+    gradeName: "الثاني المتوسط",
+    branch: null,
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "intermediate",
+    stageName: "المرحلة المتوسطة",
+    gradeId: "intermediate_3",
+    gradeName: "الثالث المتوسط",
+    branch: null,
+    isTerminalGrade: true,
+    supportsMinisterialPlans: true,
+    supportsPredictedAverage: true
+  },
+  // المرحلة الإعدادية
+  {
+    stageId: "secondary",
+    stageName: "المرحلة الإعدادية",
+    gradeId: "secondary_4_scientific",
+    gradeName: "الرابع العلمي",
+    branch: "علمي",
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "secondary",
+    stageName: "المرحلة الإعدادية",
+    gradeId: "secondary_4_literary",
+    gradeName: "الرابع الأدبي",
+    branch: "أدبي",
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "secondary",
+    stageName: "المرحلة الإعدادية",
+    gradeId: "secondary_5_scientific",
+    gradeName: "الخامس العلمي",
+    branch: "علمي",
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "secondary",
+    stageName: "المرحلة الإعدادية",
+    gradeId: "secondary_5_literary",
+    gradeName: "الخامس الأدبي",
+    branch: "أدبي",
+    isTerminalGrade: false,
+    supportsMinisterialPlans: false,
+    supportsPredictedAverage: false
+  },
+  {
+    stageId: "secondary",
+    stageName: "المرحلة الإعدادية",
+    gradeId: "secondary_6_scientific",
+    gradeName: "السادس العلمي",
+    branch: "علمي",
+    isTerminalGrade: true,
+    supportsMinisterialPlans: true,
+    supportsPredictedAverage: true
+  },
+  {
+    stageId: "secondary",
+    stageName: "المرحلة الإعدادية",
+    gradeId: "secondary_6_literary",
+    gradeName: "السادس الأدبي",
+    branch: "أدبي",
+    isTerminalGrade: true,
+    supportsMinisterialPlans: true,
+    supportsPredictedAverage: true
+  }
+];
+
+window.generateGradesOptionsHTML = function(includeAllOption = false, allOptionText = "عرض جميع الصفوف المتاحة") {
+  let html = '';
+  if (includeAllOption) {
+    html += `<option value="all">${allOptionText}</option>`;
+  }
+  
+  const stages = [
+    { id: "primary", name: "المرحلة الابتدائية" },
+    { id: "intermediate", name: "المرحلة المتوسطة" },
+    { id: "secondary", name: "المرحلة الإعدادية" }
+  ];
+  
+  stages.forEach(stage => {
+    html += `<optgroup label="${stage.name}">`;
+    const stageGrades = window.IRAQI_GRADES.filter(g => g.stageId === stage.id);
+    stageGrades.forEach(g => {
+      html += `<option value="${g.gradeName}">${g.gradeName}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  
+  return html;
+};
+
 window.LESSON_TYPES_ARABIC = {
   study: { label: 'دراسة', bg: 'bg-indigo-50', text: 'text-indigo-700' },
   review: { label: 'مراجعة', bg: 'bg-purple-50', text: 'text-purple-700' },

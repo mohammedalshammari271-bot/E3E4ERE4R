@@ -14,7 +14,38 @@ window.getStudentProfile = function() {
   const data = localStorage.getItem(PROFILE_KEY);
   if (!data) return null;
   try {
-    return JSON.parse(data);
+    const profile = JSON.parse(data);
+    if (profile && profile.gradeClass) {
+      // Map old Iraqi grades to the new unified 15 grades
+      const oldToNewMap = {
+        'الخامس الأحيائي': 'الخامس العلمي',
+        'الخامس التطبيقي': 'الخامس العلمي',
+        'السادس الأحيائي': 'السادس العلمي',
+        'السادس التطبيقي': 'السادس العلمي'
+      };
+      if (oldToNewMap[profile.gradeClass]) {
+        profile.gradeClass = oldToNewMap[profile.gradeClass];
+      }
+      
+      // Let's ensure the grade exists in our new central list
+      const gradeExists = window.IRAQI_GRADES && window.IRAQI_GRADES.some(g => g.gradeName === profile.gradeClass);
+      if (!gradeExists) {
+        // If the grade is invalid/outdated, return null to force onboarding
+        return null;
+      }
+      
+      // Sync stage and other properties
+      if (window.IRAQI_GRADES) {
+        const gradeObj = window.IRAQI_GRADES.find(g => g.gradeName === profile.gradeClass);
+        if (gradeObj) {
+          profile.stage = gradeObj.stageId === 'primary' ? 'elementary' : gradeObj.stageId === 'intermediate' ? 'middle' : 'preparatory';
+        }
+      }
+      
+      // Persist the upgraded profile
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    }
+    return profile;
   } catch (e) {
     return null;
   }
@@ -68,6 +99,7 @@ window.saveUserRole = function(role) {
 // --- CURRICULUM TREE ---
 window.getCurriculumTree = function() {
   const data = localStorage.getItem(CURRICULUM_TREE_KEY);
+  let tree = [];
   if (!data) {
     // Generate initial tree from CURRICULUM_TREES in data.js
     const initialTree = [];
@@ -98,14 +130,75 @@ window.getCurriculumTree = function() {
         });
       });
     });
-    localStorage.setItem(CURRICULUM_TREE_KEY, JSON.stringify(initialTree));
-    return initialTree;
+    tree = initialTree;
+  } else {
+    try {
+      tree = JSON.parse(data);
+    } catch (e) {
+      tree = [];
+    }
   }
-  try {
-    return JSON.parse(data);
-  } catch (e) {
-    return [];
+
+  // Check if current student's grade exists in the tree. If not, generate fallbacks dynamically!
+  const studentProfile = window.getStudentProfile();
+  if (studentProfile && studentProfile.gradeClass) {
+    const currentGrade = studentProfile.gradeClass;
+    const gradeExistsInTree = tree.some(node => node.name.startsWith(currentGrade + " - "));
+    
+    if (!gradeExistsInTree) {
+      let subjects = [];
+      if (currentGrade.includes('الابتدائي')) {
+        subjects = ['اللغة العربية', 'الرياضيات', 'العلوم', 'التربية الإسلامية', 'اللغة الإنكليزية'];
+      } else if (currentGrade.includes('المتوسط')) {
+        subjects = ['اللغة العربية', 'الرياضيات', 'الفيزياء', 'الكيمياء', 'الأحياء', 'الاجتماعيات', 'اللغة الإنكليزية'];
+      } else if (currentGrade.includes('العلمي')) {
+        subjects = ['الرياضيات', 'الفيزياء', 'الكيمياء', 'الأحياء', 'اللغة العربية', 'اللغة الإنكليزية'];
+      } else if (currentGrade.includes('الأدبي')) {
+        subjects = ['التاريخ', 'الجغرافية', 'الرياضيات', 'الاقتصاد', 'اللغة العربية', 'اللغة الإنكليزية'];
+      } else {
+        subjects = ['الرياضيات', 'الفيزياء', 'الكيمياء', 'اللغة العربية', 'اللغة الإنكليزية'];
+      }
+
+      const generatedNodes = subjects.map(subj => {
+        const idSafe = subj.replace(/\s+/g, '-');
+        return {
+          id: `node-${currentGrade}-${idSafe}`,
+          name: `${currentGrade} - ${subj}`,
+          type: 'subject',
+          completed: false,
+          children: [
+            {
+              id: `chap-${currentGrade}-${idSafe}-1`,
+              name: 'الفصل الأول: الأساسيات والمفاهيم العامة',
+              type: 'chapter',
+              completed: false,
+              children: [
+                { id: `les-${currentGrade}-${idSafe}-1-1`, name: 'الدرس الأول: مقدمة وتمهيد أساسي', type: 'lesson', completed: false },
+                { id: `les-${currentGrade}-${idSafe}-1-2`, name: 'الدرس الثاني: الأنشطة والتطبيقات الأساسية', type: 'lesson', completed: false },
+                { id: `les-${currentGrade}-${idSafe}-1-3`, name: 'الدرس الثالث: مراجعة وحل الأسئلة والتمارين', type: 'lesson', completed: false }
+              ]
+            },
+            {
+              id: `chap-${currentGrade}-${idSafe}-2`,
+              name: 'الفصل الثاني: المهارات المتقدمة والتطبيقات',
+              type: 'chapter',
+              completed: false,
+              children: [
+                { id: `les-${currentGrade}-${idSafe}-2-1`, name: 'الدرس الأول: شرح المفاهيم المحورية', type: 'lesson', completed: false },
+                { id: `les-${currentGrade}-${idSafe}-2-2`, name: 'الدرس الثاني: تطبيقات وتجارب عملية', type: 'lesson', completed: false },
+                { id: `les-${currentGrade}-${idSafe}-2-3`, name: 'الدرس الثالث: أسئلة مراجعة الفصل واختبار الذات', type: 'lesson', completed: false }
+              ]
+            }
+          ]
+        };
+      });
+
+      tree = tree.concat(generatedNodes);
+      localStorage.setItem(CURRICULUM_TREE_KEY, JSON.stringify(tree));
+    }
   }
+
+  return tree;
 };
 
 window.saveCurriculumTree = function(tree) {

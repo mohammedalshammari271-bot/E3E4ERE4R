@@ -49,7 +49,7 @@
         </div>
         <div>
           <h1 class="text-brand-dark font-black text-lg leading-tight font-sans">تطبيق مدرسي 🎓</h1>
-          <p class="text-[10px] text-slate-500 font-bold">المنظّم الدراسي الذكي المتكامل للبكالوريا والمدارس العراقية</p>
+          <p class="text-[10px] text-slate-500 font-bold">المنظّم الذكي للتعليم والمدارس العراقية</p>
         </div>
       </div>
       
@@ -92,11 +92,27 @@
             <div>
               <label class="block text-xs font-black text-brand-dark mb-1.5">الصف الدراسي</label>
               <select id="onboard-grade" onchange="updateOnboardSubjects()" class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender outline-none bg-white">
-                <option value="السادس العلمي">السادس العلمي (وزاري 🎓)</option>
-                <option value="السادس الأدبي">السادس الأدبي (وزاري 🎓)</option>
-                <option value="الثالث المتوسط">الثالث المتوسط (وزاري 🎓)</option>
-                <option value="الرابع العلمي">الرابع العلمي</option>
-                <option value="الخامس الأحيائي">الخامس الأحيائي</option>
+                <optgroup label="المرحلة الابتدائية">
+                  <option value="الأول الابتدائي">الأول الابتدائي</option>
+                  <option value="الثاني الابتدائي">الثاني الابتدائي</option>
+                  <option value="الثالث الابتدائي">الثالث الابتدائي</option>
+                  <option value="الرابع الابتدائي">الرابع الابتدائي</option>
+                  <option value="الخامس الابتدائي">الخامس الابتدائي</option>
+                  <option value="السادس الابتدائي">السادس الابتدائي (وزاري 🎓)</option>
+                </optgroup>
+                <optgroup label="المرحلة المتوسطة">
+                  <option value="الأول المتوسط">الأول المتوسط</option>
+                  <option value="الثاني المتوسط">الثاني المتوسط</option>
+                  <option value="الثالث المتوسط">الثالث المتوسط (وزاري 🎓)</option>
+                </optgroup>
+                <optgroup label="المرحلة الإعدادية">
+                  <option value="الرابع العلمي">الرابع العلمي</option>
+                  <option value="الرابع الأدبي">الرابع الأدبي</option>
+                  <option value="الخامس العلمي">الخامس العلمي</option>
+                  <option value="الخامس الأدبي">الخامس الأدبي</option>
+                  <option value="السادس العلمي" selected>السادس العلمي (وزاري 🎓)</option>
+                  <option value="السادس الأدبي">السادس الأدبي (وزاري 🎓)</option>
+                </optgroup>
               </select>
             </div>
             <div>
@@ -104,7 +120,7 @@
               <input type="text" id="onboard-division" placeholder="أ، ب، ج..." class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender outline-none">
             </div>
           </div>
-          <div>
+          <div id="onboard-target-container">
             <label class="block text-xs font-black text-brand-dark mb-1.5">معدلك المستهدف بالوزاري (%)</label>
             <input type="number" id="onboard-target" required min="50" max="100" value="95" class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender outline-none">
           </div>
@@ -526,7 +542,9 @@
             </div>
             <div>
               <label class="block font-black text-slate-600 mb-1">الصف والمنهج</label>
-              <input type="text" id="exam-grade" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+              <select id="exam-grade" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none bg-white">
+                <!-- Populated dynamically -->
+              </select>
             </div>
             <div>
               <label class="block font-black text-slate-600 mb-1">الدور / المحاولة</label>
@@ -562,7 +580,7 @@
             
             <div class="md:col-span-2 flex justify-end pt-3">
               <button type="submit" class="px-6 py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-black shadow-md transition-all cursor-pointer">
-                تأكيد ومتابعة الخطوة الثانية ➔
+                تأكيد ومتابعة الخطوة الثانية ←
               </button>
             </div>
           </form>
@@ -669,7 +687,7 @@
           
           <div class="flex justify-end pt-3">
             <button onclick="switchExamStep(3)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
-              الانتقال للخطوة الثالثة: القاعات والمقاعد ➔
+              الانتقال للخطوة الثالثة: القاعات والمقاعد ←
             </button>
           </div>
         </div>
@@ -749,7 +767,7 @@
 
           <div class="flex justify-end pt-3">
             <button onclick="switchExamStep(4)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
-              الانتقال للخطوة الرابعة: المساعد الحواري ➔
+              الانتقال للخطوة الرابعة: المساعد الحواري ←
             </button>
           </div>
         </div>
@@ -796,7 +814,7 @@
               <form id="exam-chat-form" onsubmit="handleSendExamAdvisorMessage(event)" class="bg-white p-2.5 border-t border-[#D9D3F0] flex items-center gap-2">
                 <input type="text" id="exam-advisor-input" placeholder="مثال: هل تكفي قاعاتي لـ 80 طالباً؟" class="flex-1 px-3 py-2 border border-[#D9D3F0] rounded-xl outline-none text-xs">
                 <button type="submit" class="p-2 bg-brand text-white rounded-xl shadow cursor-pointer">
-                  ➔
+                  ←
                 </button>
               </form>
             </div>
@@ -804,7 +822,7 @@
 
           <div class="flex justify-end pt-3">
             <button onclick="switchExamStep(5)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
-              الانتقال للخطوة الخامسة: تقسيم القطاعات ➔
+              الانتقال للخطوة الخامسة: تقسيم القطاعات ←
             </button>
           </div>
         </div>
@@ -841,7 +859,9 @@
                 </div>
                 <div>
                   <label class="block font-bold">الصف المخصص للقطاع</label>
-                  <input type="text" id="sector-grade" required placeholder="مثال: السادس العلمي" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                  <select id="sector-grade" required class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <!-- Populated dynamically -->
+                  </select>
                 </div>
                 <div>
                   <label class="block font-bold">الشعبة المخصصة</label>
@@ -872,7 +892,7 @@
 
           <div class="flex justify-end pt-3">
             <button onclick="switchExamStep(6)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
-              الانتقال للخطوة السادسة: المراقبين ➔
+              الانتقال للخطوة السادسة: المراقبين ←
             </button>
           </div>
         </div>
@@ -925,7 +945,7 @@
 
           <div class="flex justify-end pt-3">
             <button onclick="switchExamStep(7)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
-              الانتقال للخطوة السابعة: توليد التوزيع ➔
+              الانتقال للخطوة السابعة: توليد التوزيع ←
             </button>
           </div>
         </div>
@@ -969,7 +989,7 @@
               </div>
             </div>
 
-            <button onclick="triggerAutoDistribution Seating()" class="w-full py-3 bg-gradient-to-r from-[#3E176D] to-[#7641B4] text-white rounded-2xl font-black text-sm cursor-pointer shadow-lg hover:opacity-95 transition-all text-center">
+            <button onclick="triggerAutoDistributionSeating()" class="w-full py-3 bg-gradient-to-r from-[#3E176D] to-[#7641B4] text-white rounded-2xl font-black text-sm cursor-pointer shadow-lg hover:opacity-95 transition-all text-center">
               ⚡ تشغيل خوارزمية التوزيع وتوليد مخطط الجلوس الذكي
             </button>
           </div>
@@ -994,8 +1014,8 @@
             </div>
             
             <div class="flex items-center gap-2">
-              <button onclick="printOfficialExamDocuments()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs cursor-pointer shadow flex items-center gap-1.5">
-                <span>🖨️ طباعة المستندات الرسمية</span>
+              <button onclick="openExportPreviewModal()" class="px-4 py-2.5 bg-[#4F46E5] hover:bg-brand-dark text-white rounded-xl font-black text-xs cursor-pointer shadow flex items-center gap-1.5">
+                <span>🔍 معاينة وتدقيق قبل التصدير</span>
               </button>
               <button onclick="exportExamStudentsToCsv()" class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer flex items-center gap-1.5">
                 <span>📊 تصدير Excel (CSV)</span>
@@ -1054,6 +1074,61 @@
        4. INTERACTIVE DIALOG MODALS (NO-PRINT)
        ============================================== -->
   
+  <!-- 4.C EXPORT PREVIEW MODAL -->
+  <dialog id="modal-export-preview" class="no-print rounded-3xl border border-[#D9D3F0] p-0 shadow-2xl backdrop:bg-slate-900/60 w-full max-w-5xl outline-none">
+    <div class="bg-gradient-to-r from-brand-dark to-brand p-5 text-white flex items-center justify-between">
+      <h3 class="font-extrabold text-base flex items-center gap-2">
+        <span>🔍 معاينة وتدقيق المستندات الرسمية قبل الطباعة والتصدير</span>
+      </h3>
+      <button onclick="closeExportPreviewModal()" class="text-white hover:text-slate-200 text-sm font-bold cursor-pointer">إغلاق ×</button>
+    </div>
+    
+    <div class="p-6 text-xs text-[#1D2433] space-y-6 max-h-[75vh] overflow-y-auto">
+      <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl text-indigo-900 leading-relaxed font-semibold">
+        يرجى مراجعة وتدقيق بطاقات المقاعد، مخطط هيكل القاعة، والمراقبين الموزعين لتجنب أي أخطاء بالطباعة. بعد التأكد، اضغط على زر تأكيد الطباعة بالأسفل لبدء التصدير.
+      </div>
+
+      <!-- Grid Columns for Preview Components -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Structural Info and Seating Map -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="border border-slate-150 p-4 rounded-2xl bg-white space-y-3 shadow-sm">
+            <h4 class="font-extrabold text-brand-dark text-xs border-b border-slate-100 pb-2">🗺️ مخطط جلوس المقاعد وهيكل القاعة المحددة</h4>
+            <div id="preview-seating-maps" class="space-y-4 max-h-[400px] overflow-y-auto p-1">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Seat Cards & Proctors list -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="border border-slate-150 p-4 rounded-2xl bg-white space-y-3 shadow-sm">
+            <h4 class="font-extrabold text-brand-dark text-xs border-b border-slate-100 pb-2">🎫 بطاقات المقاعد الشخصية للطلاب</h4>
+            <div id="preview-student-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 bg-slate-50/50 rounded-xl">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
+          <div class="border border-slate-150 p-4 rounded-2xl bg-white space-y-3 shadow-sm">
+            <h4 class="font-extrabold text-brand-dark text-xs border-b border-slate-100 pb-2">👥 كادر المراقبة وتوزيع المهام بالقاعات</h4>
+            <div id="preview-proctors-table" class="overflow-x-auto border border-slate-200 rounded-xl bg-white max-h-[160px] overflow-y-auto">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal footer actions -->
+    <div class="bg-slate-50 border-t border-slate-150 p-5 flex items-center justify-between">
+      <button onclick="closeExportPreviewModal()" class="px-5 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold cursor-pointer hover:bg-slate-100 transition-all">إلغاء وتعديل التوزيع</button>
+      <div class="flex items-center gap-3">
+        <button onclick="exportExamStudentsToCsv(); closeExportPreviewModal();" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-all">📊 تصدير Excel (CSV)</button>
+        <button onclick="confirmAndPrintExam()" class="px-6 py-3 bg-brand text-white rounded-xl font-black cursor-pointer shadow-md hover:bg-brand-dark transition-all">🖨️ تأكيد والبدء بالطباعة الفورية (PDF)</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- 4.A SMART CREATOR WIZARD MODAL -->
   <dialog id="modal-wizard" class="no-print rounded-3xl border border-[#D9D3F0] p-0 shadow-2xl backdrop:bg-slate-900/60 w-full max-w-xl outline-none">
     <div class="bg-gradient-to-r from-brand-dark to-brand p-5 text-white flex items-center justify-between">
@@ -1129,9 +1204,9 @@
       
       <!-- Actions buttons -->
       <div class="flex items-center justify-between pt-4 border-t border-slate-100">
-        <button onclick="handleWizardPrev()" id="btn-wiz-prev" class="hidden px-4 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-bold cursor-pointer hover:bg-slate-100 transition-all">➔ السابق</button>
+        <button onclick="handleWizardPrev()" id="btn-wiz-prev" class="hidden px-4 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-bold cursor-pointer hover:bg-slate-100 transition-all">السابق →</button>
         <div></div>
-        <button onclick="handleWizardNext()" id="btn-wiz-next" class="px-5 py-2.5 bg-brand text-white rounded-xl font-black cursor-pointer shadow-md hover:bg-brand-dark transition-all">التالي ➔</button>
+        <button onclick="handleWizardNext()" id="btn-wiz-next" class="px-5 py-2.5 bg-brand text-white rounded-xl font-black cursor-pointer shadow-md hover:bg-brand-dark transition-all">التالي ←</button>
       </div>
     </div>
   </dialog>
@@ -1184,12 +1259,32 @@
     </form>
   </dialog>
 
-  <!-- ==============================================
-       5. FOOTER & COPYRIGHT (NO-PRINT)
+  <!-- 4.D ACCOUNT RESET CONFIRMATION DIALOG -->
+  <dialog id="modal-confirm-reset" class="no-print rounded-3xl border border-red-200 p-0 shadow-2xl backdrop:bg-slate-900/60 w-full max-w-md outline-none">
+    <div class="bg-red-500 p-5 text-white flex items-center justify-between">
+      <h3 class="font-extrabold text-sm flex items-center gap-2">
+        <span>⚠️ تأكيد مسح بيانات التطبيق</span>
+      </h3>
+      <button onclick="closeConfirmResetModal()" class="text-white hover:text-slate-150 text-base font-bold cursor-pointer">×</button>
+    </div>
+    
+    <div class="p-6 text-xs text-[#1D2433] space-y-4">
+      <h4 class="font-extrabold text-slate-800 text-sm">هل تريد مسح بيانات التطبيق والبدء من جديد؟</h4>
+      <p class="leading-relaxed text-slate-600 font-bold text-[11px]">
+        سيتم حذف بياناتك المحفوظة محلياً داخل هذا المتصفح، بما في ذلك الجداول والخطط والبيانات الشخصية والإعدادات والقاعات والكادر والتوزيعات المحفوظة. لا يمكن التراجع عن هذا الإجراء.
+      </p>
+    </div>
+
+    <!-- Modal footer actions -->
+    <div class="bg-slate-50 border-t border-slate-150 p-4 flex items-center justify-end gap-3">
+      <button onclick="closeConfirmResetModal()" class="px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl font-bold cursor-pointer hover:bg-slate-100 transition-all text-[11px]">إلغاء</button>
+      <button onclick="confirmResetApplicationData()" class="px-5 py-2 bg-red-600 text-white rounded-xl font-black cursor-pointer shadow-md hover:bg-red-700 transition-all text-[11px]">نعم، امسح البيانات وابدأ من جديد</button>
+    </div>
+  </dialog>
        ============================================== -->
   <footer class="no-print bg-white border-t border-[#E9E6FA] py-5 mt-12 text-center text-xs text-slate-400 font-bold">
     <div class="max-w-7xl mx-auto px-4">
-      <p>حقوق النشر والتعلم محفوظة © تطبيق مدرسي الذكي 2026. طوّر بكل فخر واعتزاز لخدمة التعليم البكالوريا في العراق العظيم 🇮🇶.</p>
+      <p>حقوق النشر والتعلم محفوظة ● تطبيق مدرسي الذكي 2026. طوّر بكل فخر واعتزاز لخدمة التعليم في العراق العظيم IQ.</p>
     </div>
   </footer>
 
