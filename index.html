@@ -1,16 +1,1203 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>تطبيق مدرسي - جدول الحصص المدرسي</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  </head>
-  <body class="bg-[#F5F3FF] text-[#1D2433] min-h-screen">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تطبيق مدرسي - منظّم وجدول الدروس والامتحانات الذكي</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Tajawal', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              light: '#E9E6FA',
+              DEFAULT: '#5B2596',
+              dark: '#3E176D',
+              lavender: '#7641B4'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Custom Style Sheets -->
+  <link rel="stylesheet" href="./assets/css/style.css">
+  <link rel="stylesheet" href="./assets/css/print.css" media="print">
+</head>
+<body class="bg-[#F8F7FC] text-slate-800 min-h-screen flex flex-col font-sans transition-colors duration-200">
 
+  <!-- TOP HEADER & ROLE SWITCHER (NO-PRINT) -->
+  <header class="no-print bg-white border-b border-[#E9E6FA] sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-dark to-brand-lavender flex items-center justify-center text-white font-black text-xl shadow-md shadow-brand/20">
+          م
+        </div>
+        <div>
+          <h1 class="text-brand-dark font-black text-lg leading-tight font-sans">تطبيق مدرسي 🎓</h1>
+          <p class="text-[10px] text-slate-500 font-bold">المنظّم الدراسي الذكي المتكامل للبكالوريا والمدارس العراقية</p>
+        </div>
+      </div>
+      
+      <!-- Role Switcher Buttons -->
+      <div class="flex items-center bg-[#F3F0FC] p-1 rounded-2xl border border-[#D9D3F0]">
+        <button id="btn-role-student" onclick="switchRole('student')" class="px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer">
+          <span>👨‍🎓 وضع الطالب</span>
+        </button>
+        <button id="btn-role-teacher" onclick="switchRole('teacher')" class="px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer">
+          <span>👩‍🏫 وضع المدرس</span>
+        </button>
+        <button id="btn-role-organizer" onclick="switchRole('exam_organizer')" class="px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer">
+          <span>⚡ منظم القاعات الذكي</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+    <!-- ==============================================
+         1. STUDENT ROLE CONTAINER
+         ============================================== -->
+    <section id="student-section" class="hidden animate-fade-in">
+      <!-- 1.A Student Onboarding (If profile doesn't exist) -->
+      <div id="student-onboarding" class="hidden max-w-xl mx-auto bg-white border border-[#D9D3F0] rounded-3xl p-8 shadow-sm">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 rounded-3xl bg-violet-100 flex items-center justify-center mx-auto text-3xl mb-3">👋</div>
+          <h2 class="text-brand-dark font-black text-2xl">أهلاً بك في انطلاقتك للتفوق الدراسية!</h2>
+          <p class="text-slate-500 text-xs mt-1.5 font-bold">لنقم بتهيئة بروفايلك المدرسي سريعاً لبناء جداول مخصصة وخطة بكالوريا مثالية.</p>
+        </div>
+        
+        <form id="onboarding-form" onsubmit="handleStudentOnboarding(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-black text-brand-dark mb-1.5">اسمك الثلاثي الكريم</label>
+            <input type="text" id="onboard-name" required placeholder="مثال: أحمد علي جاسم" class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender focus:ring-1 focus:ring-brand-lavender outline-none">
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-black text-brand-dark mb-1.5">الصف الدراسي</label>
+              <select id="onboard-grade" onchange="updateOnboardSubjects()" class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender outline-none bg-white">
+                <option value="السادس العلمي">السادس العلمي (وزاري 🎓)</option>
+                <option value="السادس الأدبي">السادس الأدبي (وزاري 🎓)</option>
+                <option value="الثالث المتوسط">الثالث المتوسط (وزاري 🎓)</option>
+                <option value="الرابع العلمي">الرابع العلمي</option>
+                <option value="الخامس الأحيائي">الخامس الأحيائي</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-black text-brand-dark mb-1.5">الشعبة</label>
+              <input type="text" id="onboard-division" placeholder="أ، ب، ج..." class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-black text-brand-dark mb-1.5">معدلك المستهدف بالوزاري (%)</label>
+            <input type="number" id="onboard-target" required min="50" max="100" value="95" class="w-full px-4 py-3 border border-[#D9D3F0] rounded-2xl text-sm focus:border-brand-lavender outline-none">
+          </div>
+          
+          <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-brand-dark to-brand bg-brand text-white rounded-2xl font-black text-sm cursor-pointer shadow-lg shadow-brand/20 hover:opacity-95 transition-all">
+            ابدأ تنظيم دراستي الآن 🚀
+          </button>
+        </form>
+      </div>
+
+      <!-- 1.B Student Dashboard (Visible when profile exists) -->
+      <div id="student-dashboard" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Sidebar Navigation & Profiles (3 cols) -->
+        <div class="lg:col-span-3 space-y-6 no-print">
+          <!-- Small Student Profile Card -->
+          <div class="bg-white border border-[#D9D3F0] rounded-3xl p-5 shadow-sm text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-brand-dark to-emerald-400"></div>
+            <div class="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center text-3xl mx-auto mb-3 border-2 border-white shadow-sm">👨‍🎓</div>
+            <h3 id="student-profile-name" class="font-extrabold text-brand-dark text-base">اسم الطالب</h3>
+            <span id="student-profile-grade" class="inline-block mt-1 bg-[#F3F0FC] text-brand text-[10px] font-black px-2.5 py-1 rounded-full border border-[#D9D3F0]">السادس العلمي</span>
+            
+            <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2 text-center">
+              <div>
+                <span class="block text-[10px] text-slate-500 font-bold">الهدف المستهدف</span>
+                <span id="student-profile-target" class="font-extrabold text-emerald-600 text-sm">95%</span>
+              </div>
+              <div>
+                <span class="block text-[10px] text-slate-500 font-bold">الإصدار المعتمد</span>
+                <span class="font-extrabold text-brand text-sm">v2.0 أوفلاين</span>
+              </div>
+            </div>
+            
+            <button onclick="clearStudentProfileData()" class="mt-4 w-full text-[10px] text-red-500 hover:text-red-600 font-black flex items-center justify-center gap-1.5 py-1.5 border border-red-100 rounded-xl hover:bg-red-50/50 cursor-pointer transition-all">
+              ⚠️ مسح الحساب والبدء من جديد
+            </button>
+          </div>
+
+          <!-- Saved Schedules Picker Card -->
+          <div class="bg-white border border-[#D9D3F0] rounded-3xl p-5 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-50 pb-2.5">
+              <h4 class="font-black text-brand-dark text-xs flex items-center gap-1.5">
+                <span>🗓️ جداولي المجدولة</span>
+              </h4>
+              <button onclick="openWizardModal()" class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-xl font-bold hover:bg-emerald-100 transition-all cursor-pointer">
+                + توليد جدول ذكي
+              </button>
+            </div>
+            
+            <div id="student-schedules-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <!-- Dynamically populated schedules list -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Content Panel (9 cols) -->
+        <div class="lg:col-span-9 space-y-6">
+          <!-- Tabs selection header (no print) -->
+          <div class="no-print bg-white border border-[#D9D3F0] rounded-2xl p-2.5 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <button id="tab-student-schedule" onclick="switchStudentTab('schedule')" class="px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer">
+                <span>📅 الجدول الدراسي</span>
+              </button>
+              <button id="tab-student-curriculum" onclick="switchStudentTab('curriculum')" class="px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer">
+                <span>🌳 شجرة تتبع المنهج</span>
+              </button>
+              <button id="tab-student-assistant" onclick="switchStudentTab('assistant')" class="px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer">
+                <span>🤖 المستشار الذكي</span>
+              </button>
+            </div>
+            
+            <!-- Quick Active Schedule Info / Actions -->
+            <div class="flex items-center gap-2">
+              <span id="active-schedule-title" class="hidden sm:inline text-xs text-slate-500 font-bold max-w-40 truncate"></span>
+              <button onclick="printActiveSchedule()" class="text-xs border border-[#D9D3F0] hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1">
+                <span>🖨️ طباعة الجدول</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT: SCHEDULE TIMETABLE -->
+          <div id="pane-student-schedule" class="space-y-6">
+            <!-- Schedule metadata banner -->
+            <div class="bg-gradient-to-r from-brand-dark via-brand to-brand-lavender rounded-3xl p-6 text-white relative shadow-sm overflow-hidden">
+              <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full"></div>
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 id="schedule-banner-name" class="text-xl font-black">جدول المذاكرة الذكي النشط</h3>
+                  <p id="schedule-banner-desc" class="text-xs text-purple-200 mt-1 font-bold">نوع: جدول منظم • تم توزيعه دراسياً بالتساوي</p>
+                </div>
+                <!-- Mini Stats grid -->
+                <div class="grid grid-cols-2 gap-3 shrink-0">
+                  <div class="bg-white/10 backdrop-blur-sm px-3.5 py-1.5 rounded-2xl text-center">
+                    <span class="block text-[9px] text-purple-200 font-bold">ساعات المذاكرة</span>
+                    <span id="schedule-stat-hours" class="font-extrabold text-base">45 ساعة</span>
+                  </div>
+                  <div class="bg-white/10 backdrop-blur-sm px-3.5 py-1.5 rounded-2xl text-center">
+                    <span class="block text-[9px] text-purple-200 font-bold">معدل الإنجاز</span>
+                    <span id="schedule-stat-percent" class="font-extrabold text-base text-emerald-300">30%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- The Grid Table itself -->
+            <div class="bg-white border border-[#D9D3F0] rounded-3xl shadow-sm overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-center border-collapse">
+                  <thead>
+                    <tr class="bg-[#F6F4FC] border-b border-[#D9D3F0]">
+                      <th class="p-4 text-xs font-black text-brand-dark text-right min-w-[120px]">الفترات / الأيام</th>
+                      <!-- Day headers populated dynamically -->
+                    </tr>
+                  </thead>
+                  <tbody id="student-grid-body">
+                    <!-- Rows generated dynamically from app.js -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Schedule Notes -->
+            <div class="bg-[#FCFBFE] border border-[#E9E6FA] rounded-2xl p-5 space-y-2">
+              <h4 class="font-extrabold text-xs text-brand-dark">💡 إرشادات وتوصيات تطبيق مدرسي لجدولك:</h4>
+              <p id="schedule-notes-text" class="text-xs text-slate-500 leading-relaxed font-bold">
+                تأكد من إكمال الدروس المحددة يومياً ونقر الزر "مكتمل" لتسجيل تقدمك الإحصائي لضمان المذاكرة الصارمة.
+              </p>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT: CURRICULUM TREE TRACKER -->
+          <div id="pane-student-curriculum" class="hidden space-y-6">
+            <div class="bg-white border border-[#D9D3F0] rounded-3xl p-6 shadow-sm space-y-4">
+              <div>
+                <h3 class="font-black text-brand-dark text-lg">🌳 متتبع الفصول والمنهج الدراسي والوزاري</h3>
+                <p class="text-slate-500 text-xs mt-1 font-bold">تتبع تقدمك في تغطية كافة الفصول، المباحث، والدروس المقررة رسمياً لصفك الدراسي.</p>
+              </div>
+
+              <!-- Curriculum Tree list container -->
+              <div id="curriculum-tree-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                <!-- Dynamically populated curriculum structures -->
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB CONTENT: SMART ASSISTANT CHAT -->
+          <div id="pane-student-assistant" class="hidden">
+            <!-- Dynamic smart assistant UI -->
+            <div id="assistant-chat-container">
+              <!-- Smart Assistant interface rendered by app.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         2. TEACHER ROLE CONTAINER
+         ============================================== -->
+    <section id="teacher-section" class="hidden animate-fade-in space-y-6">
+      <!-- Title banner & Role selector -->
+      <div class="no-print bg-white border border-[#D9D3F0] rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 class="text-brand-dark font-black text-xl">👨‍🏫 لوحة إدارة الكادر التدريسي والجدول الموحد</h2>
+          <p class="text-slate-500 text-xs mt-1 font-bold">إدارة جدول الحصص المدرسي للمدرسين والصفوف، واكتشاف تضارب الدروس في الزمن أو القاعة فورياً.</p>
+        </div>
+        
+        <!-- Teacher Role selector -->
+        <div class="flex items-center gap-1.5 bg-slate-50 p-1 border border-slate-200 rounded-xl">
+          <button id="btn-t-principal" onclick="setTeacherRole('principal')" class="px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer">👤 مدير المدرسة</button>
+          <button id="btn-t-assistant" onclick="setTeacherRole('assistant')" class="px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer">👥 المعاون الفني</button>
+          <button id="btn-t-teacher" onclick="setTeacherRole('teacher')" class="px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer">📖 مدرس المادة</button>
+        </div>
+      </div>
+
+      <!-- Main Columns Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Sidebar controls (4 cols) -->
+        <div class="lg:col-span-3 space-y-6 no-print">
+          <!-- Filter Controls -->
+          <div class="bg-white border border-[#D9D3F0] rounded-3xl p-5 shadow-sm space-y-4">
+            <h3 class="font-extrabold text-xs text-brand-dark border-b border-slate-50 pb-2 flex items-center gap-1.5">
+              <span>🔍 تصفية الجدول وعرض الفئات</span>
+            </h3>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-1">تصفية حسب الصف</label>
+                <select id="teacher-filter-grade" onchange="renderTeacherGrid()" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none">
+                  <option value="all">عرض جميع الصفوف المتاحة</option>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-1">تصفية حسب المدرس</label>
+                <select id="teacher-filter-instructor" onchange="renderTeacherGrid()" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none">
+                  <option value="all">عرض جميع الكادر التدريسي</option>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-1">تصفية حسب القاعة/المختبر</label>
+                <select id="teacher-filter-room" onchange="renderTeacherGrid()" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none">
+                  <option value="all">عرض جميع القاعات والمختبرات</option>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add/Edit Lesson Quick Panel -->
+          <div class="bg-white border border-[#D9D3F0] rounded-3xl p-5 shadow-sm space-y-4">
+            <h3 id="teacher-form-title" class="font-extrabold text-xs text-brand-dark border-b border-slate-50 pb-2">
+              ➕ إضافة حصة دراسية جديدة
+            </h3>
+            
+            <form id="teacher-lesson-form" onsubmit="handleSaveTeacherLesson(event)" class="space-y-3 text-xs">
+              <input type="hidden" id="form-lesson-id">
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">اليوم</label>
+                <select id="form-lesson-day" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                  <!-- Iraqi Days populated dynamically -->
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">الحصة (التوقيت)</label>
+                <select id="form-lesson-period" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                  <!-- Period times populated dynamically -->
+                </select>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-black text-slate-500 mb-0.5">الصف</label>
+                  <select id="form-lesson-grade" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <!-- Populated from profile -->
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-black text-slate-500 mb-0.5">الشعبة</label>
+                  <select id="form-lesson-division" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <!-- Populated from profile -->
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">اسم المادة</label>
+                <input type="text" id="form-lesson-subject" required placeholder="مثال: الرياضيات" class="w-full p-2 border border-slate-200 rounded-xl outline-none">
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">المدرس المسؤول</label>
+                <select id="form-lesson-instructor" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                  <!-- Populated from profile -->
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">القاعة الدراسية</label>
+                <select id="form-lesson-room" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                  <!-- Populated from profile -->
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">نوع الدرس</label>
+                <select id="form-lesson-type" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                  <option value="study">دراسة وشرح</option>
+                  <option value="review">مراجعة عامة</option>
+                  <option value="solve">حل تمارين ومسائل</option>
+                  <option value="exam">امتحان شهري</option>
+                  <option value="rest">استراحة مدروسة</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 mb-0.5">ملاحظات الدرس</label>
+                <textarea id="form-lesson-notes" rows="2" placeholder="الفصل، الباب، التمارين المحددة..." class="w-full p-2 border border-slate-200 rounded-xl outline-none"></textarea>
+              </div>
+              
+              <div class="flex gap-2 pt-1.5">
+                <button type="submit" class="flex-1 py-2.5 bg-brand text-white rounded-xl font-bold cursor-pointer hover:bg-brand-dark transition-all">
+                  حفظ الحصة
+                </button>
+                <button type="button" onclick="resetTeacherForm()" class="px-3 py-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-bold cursor-pointer hover:bg-slate-100 transition-all">
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Class grid and clash notifier (9 cols) -->
+        <div class="lg:col-span-9 space-y-6">
+          <!-- Conflict Alert Panel -->
+          <div id="teacher-conflict-panel" class="hidden bg-red-50 border border-red-100 rounded-3xl p-5 space-y-3 text-xs">
+            <div class="flex items-center gap-2 text-red-700 font-extrabold text-sm">
+              <span>🚨 كاشف تضارب الحصص التدريسية والزمنية الذكي</span>
+            </div>
+            <div id="teacher-conflict-list" class="space-y-1.5 text-red-600 font-bold">
+              <!-- Dynamically populated clash warnings -->
+            </div>
+          </div>
+
+          <!-- Class Grid Table -->
+          <div class="bg-white border border-[#D9D3F0] rounded-3xl shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between no-print">
+              <h3 class="font-extrabold text-sm text-brand-dark">📅 الجدول الموحّد للحصص الدراسية</h3>
+              <span class="text-[10px] bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200 font-black">أقصى حد: 6 حصص يومياً</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-center border-collapse">
+                <thead>
+                  <tr class="bg-[#F6F4FC] border-b border-[#D9D3F0]">
+                    <th class="p-4 text-xs font-black text-brand-dark text-right min-w-[120px]">الأيام / الحصص</th>
+                    <!-- Dynamic period headers -->
+                  </tr>
+                </thead>
+                <tbody id="teacher-grid-body">
+                  <!-- Dynamically populated rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- School Config settings (Teachers, Rooms list, etc.) -->
+          <div class="bg-white border border-[#D9D3F0] rounded-3xl p-6 shadow-sm space-y-4 no-print">
+            <div>
+              <h3 class="font-black text-brand-dark text-sm">🛠️ إعدادات وتكوين المدرسة والمجموعات</h3>
+              <p class="text-slate-500 text-[10px] font-bold">تعديل أسماء الكادر التدريسي، الفصول، الشعب، والمختبرات المتاحة للاختيار في لوحة الإدخال.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="space-y-2">
+                <label class="block font-black text-brand-dark">قائمة الكادر التدريسي</label>
+                <textarea id="config-teachers" rows="3" class="w-full p-2.5 border border-[#D9D3F0] rounded-xl outline-none font-bold text-[#1D2433] leading-relaxed"></textarea>
+              </div>
+              <div class="space-y-2">
+                <label class="block font-black text-brand-dark">قائمة المختبرات والقاعات</label>
+                <textarea id="config-rooms" rows="3" class="w-full p-2.5 border border-[#D9D3F0] rounded-xl outline-none font-bold text-[#1D2433] leading-relaxed"></textarea>
+              </div>
+            </div>
+            <div class="flex justify-end pt-2">
+              <button onclick="saveSchoolConfiguration()" class="px-5 py-2.5 bg-brand text-white rounded-xl font-bold cursor-pointer shadow-md hover:bg-brand-dark transition-all">
+                حفظ الإعدادات المدرسية المحدثة
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================
+         3. EXAM HALL ORGANIZER CONTAINER
+         ============================================== -->
+    <section id="exam-organizer-section" class="hidden animate-fade-in space-y-6">
+      
+      <!-- STEP NAVIGATION HEADER (NO-PRINT) -->
+      <div class="bg-white rounded-3xl border border-[#D9D3F0] p-5 shadow-sm overflow-x-auto no-print">
+        <div class="flex items-center justify-between min-w-[760px] relative">
+          <!-- Connector Line -->
+          <div class="absolute top-1/2 left-6 right-6 h-0.5 bg-[#E9E6FA] -translate-y-1/2 z-0"></div>
+          
+          <!-- Steps buttons generated on fly or defined statically -->
+          <div class="flex items-center justify-between w-full relative z-10 text-center">
+            <button onclick="switchExamStep(1)" id="step-btn-1" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-[#5B2596] text-white">1</div>
+              <span class="text-[10px] font-bold text-[#3E176D]">بيانات الامتحان</span>
+            </button>
+            <button onclick="switchExamStep(2)" id="step-btn-2" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">2</div>
+              <span class="text-[10px] font-bold text-slate-500">قائمة الطلاب</span>
+            </button>
+            <button onclick="switchExamStep(3)" id="step-btn-3" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">3</div>
+              <span class="text-[10px] font-bold text-slate-500">القاعات والمقاعد</span>
+            </button>
+            <button onclick="switchExamStep(4)" id="step-btn-4" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">4</div>
+              <span class="text-[10px] font-bold text-slate-500">المساعد الحواري</span>
+            </button>
+            <button onclick="switchExamStep(5)" id="step-btn-5" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">5</div>
+              <span class="text-[10px] font-bold text-slate-500">القطاعات</span>
+            </button>
+            <button onclick="switchExamStep(6)" id="step-btn-6" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">6</div>
+              <span class="text-[10px] font-bold text-slate-500">المراقبين</span>
+            </button>
+            <button onclick="switchExamStep(7)" id="step-btn-7" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">7</div>
+              <span class="text-[10px] font-bold text-slate-500">توليد التوزيع</span>
+            </button>
+            <button onclick="switchExamStep(8)" id="step-btn-8" class="flex flex-col items-center gap-1 focus:outline-none cursor-pointer">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black bg-white border border-[#D9D3F0] text-slate-500">8</div>
+              <span class="text-[10px] font-bold text-slate-500">النتائج والطباعة</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVE STEP VIEW PANEL -->
+      <div id="exam-steps-content" class="bg-white border border-[#D9D3F0] rounded-3xl p-6 shadow-sm">
+        
+        <!-- STEP 1: EXAM SESSION INFO -->
+        <div id="exam-step-pane-1" class="space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="font-black text-brand-dark text-lg">📝 الخطوة الأولى: تكوين الجلسة وبيانات الامتحان</h3>
+            <p class="text-slate-500 text-xs font-bold">تحديد تفاصيل المدرسة، اسم الامتحان، المشرفين، والمادة المقررة لطباعتها رسمياً في كشوفات المقاعد.</p>
+          </div>
+          
+          <form onsubmit="saveExamStep1(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="block font-black text-slate-600 mb-1">اسم المدرسة</label>
+              <input type="text" id="exam-school-name" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div>
+              <label class="block font-black text-slate-600 mb-1">عنوان الامتحان الرئيسي</label>
+              <input type="text" id="exam-title" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div>
+              <label class="block font-black text-slate-600 mb-1">المادة الامتحانية المحددة</label>
+              <input type="text" id="exam-subject" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div>
+              <label class="block font-black text-slate-600 mb-1">الصف والمنهج</label>
+              <input type="text" id="exam-grade" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div>
+              <label class="block font-black text-slate-600 mb-1">الدور / المحاولة</label>
+              <select id="exam-attempt" class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none bg-white">
+                <option value="الدور الأول">الدور الأول</option>
+                <option value="الدور الثاني">الدور الثاني</option>
+                <option value="الدور الثالث">الدور الثالث</option>
+                <option value="الامتحانات التمهيدية">الامتحانات التمهيدية</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-black text-slate-600 mb-1">رئيس اللجنة الامتحانية</label>
+              <input type="text" id="exam-chair" required class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div>
+              <label class="block font-black text-slate-600 mb-1">تاريخ الامتحان</label>
+              <input type="date" id="exam-date" class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block font-black text-slate-600 mb-1">اليوم</label>
+                <input type="text" id="exam-day" class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+              </div>
+              <div>
+                <label class="block font-black text-slate-600 mb-1">وقت البدء</label>
+                <input type="text" id="exam-time" class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none">
+              </div>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block font-black text-slate-600 mb-1">ملاحظات رسمية في البطاقة</label>
+              <textarea id="exam-notes" rows="2" class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none"></textarea>
+            </div>
+            
+            <div class="md:col-span-2 flex justify-end pt-3">
+              <button type="submit" class="px-6 py-3 bg-brand hover:bg-brand-dark text-white rounded-xl font-black shadow-md transition-all cursor-pointer">
+                تأكيد ومتابعة الخطوة الثانية ➔
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- STEP 2: STUDENTS DATA LIST -->
+        <div id="exam-step-pane-2" class="hidden space-y-4">
+          <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <h3 class="font-black text-brand-dark text-lg">👨‍🎓 الخطوة الثانية: قائمة الطلاب ومراجعة المستندات</h3>
+              <p class="text-slate-500 text-xs font-bold">إضافة أسماء الطلاب والأرقام الامتحانية والتحقق من سلامتها فورياً أو سحب نص من وثيقة ممسوحة ضوئياً.</p>
+            </div>
+            
+            <div class="flex items-center gap-1.5 bg-slate-50 p-1 border border-slate-200 rounded-xl">
+              <button onclick="setStudentInputMode('manual')" id="btn-st-manual" class="px-3 py-1.5 text-[10px] font-black rounded-lg cursor-pointer">➕ إضافة فردية</button>
+              <button onclick="setStudentInputMode('bulk')" id="btn-st-bulk" class="px-3 py-1.5 text-[10px] font-black rounded-lg cursor-pointer">📋 لصق جماعي</button>
+              <button onclick="setStudentInputMode('ocr')" id="btn-st-ocr" class="px-3 py-1.5 text-[10px] font-black rounded-lg cursor-pointer">📷 مسح كاميرا (OCR)</button>
+            </div>
+          </div>
+
+          <!-- MANUAL FORM -->
+          <form id="student-manual-form" onsubmit="handleAddStudentManual(event)" class="hidden grid grid-cols-1 sm:grid-cols-4 gap-3 items-end text-xs">
+            <div>
+              <label class="block font-black text-slate-600 mb-1">الرقم الامتحاني</label>
+              <input type="text" id="manual-st-roll" required placeholder="مثال: 100401" class="w-full p-2.5 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block font-black text-slate-600 mb-1">الاسم الثلاثي واللقب</label>
+              <input type="text" id="manual-st-name" required placeholder="مثال: أحمد علي جاسم" class="w-full p-2.5 border border-[#D9D3F0] rounded-xl outline-none">
+            </div>
+            <div>
+              <button type="submit" class="w-full py-2.5 bg-brand text-white rounded-xl font-black cursor-pointer hover:bg-brand-dark transition-all">
+                + إضافة الطالب
+              </button>
+            </div>
+          </form>
+
+          <!-- BULK TEXTAREA -->
+          <div id="student-bulk-form" class="hidden space-y-2 text-xs">
+            <p class="text-[10px] text-amber-600 font-extrabold">ملاحظة: يمكنك فصل الاسم، الرقم الامتحاني، الشعبة بفاصلة (,) أو لصق جدول Excel مباشر.</p>
+            <textarea id="bulk-st-text" rows="5" placeholder="100401, أحمد علي جاسم, السادس العلمي, أ&#10;100402, محمد حسن الشمري, السادس العلمي, أ" class="w-full p-3 border border-[#D9D3F0] rounded-xl outline-none leading-relaxed font-mono text-xs"></textarea>
+            <div class="flex justify-end">
+              <button onclick="handleApplyBulkStudents()" class="px-4 py-2 bg-brand text-white rounded-xl font-black cursor-pointer hover:bg-brand-dark transition-all">
+                تطبيق وحفظ القائمة المدخلة
+              </button>
+            </div>
+          </div>
+
+          <!-- OCR SIMULATOR PANEL -->
+          <div id="student-ocr-form" class="hidden bg-slate-50 border border-dashed border-[#D9D3F0] rounded-2xl p-5 text-center text-xs space-y-3">
+            <div class="max-w-xs mx-auto">
+              <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto text-xl mb-2">📷</div>
+              <h4 class="font-extrabold text-brand-dark">محاكاة القارئ البصري للوثائق ومستندات الطلاب</h4>
+              <p class="text-slate-500 text-[10px] mt-1">اضغط لمحاكاة تحليل صورة الكاميرا واستخراج قوائم الطلاب تلقائياً بكبسة زر.</p>
+            </div>
+            
+            <div class="flex justify-center gap-2 pt-2">
+              <button onclick="triggerOcrSimulation()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-black cursor-pointer hover:bg-indigo-700 transition-all">
+                ⚡ تشغيل محاكاة القارئ الذكي (OCR)
+              </button>
+            </div>
+            
+            <div id="ocr-simulation-log-container" class="hidden max-w-xl mx-auto space-y-3 text-right">
+              <pre id="ocr-log" class="bg-zinc-900 text-green-400 p-3.5 rounded-xl font-mono text-[10px] leading-relaxed overflow-x-auto text-left"></pre>
+              <div class="flex justify-end gap-2">
+                <button onclick="applyOcrResult()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-black cursor-pointer hover:bg-emerald-700 transition-all">
+                  ✓ اعتماد وحفظ الـ 10 طلاب المستخرجين
+                </button>
+                <button onclick="cancelOcrResult()" class="px-3 py-2 bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer hover:bg-slate-300 transition-all">
+                  إلغاء التوليد
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total Counter & Students table list -->
+          <div class="space-y-2 pt-3">
+            <div class="flex items-center justify-between">
+              <h4 class="font-black text-brand-dark text-xs flex items-center gap-1.5">
+                <span>📋 الطلاب المدرجون بالامتحان</span>
+                <span id="exam-students-count" class="bg-[#F3F0FC] text-brand px-2 py-0.5 rounded text-[10px]">0 طلبة</span>
+              </h4>
+              <button onclick="clearAllExamStudents()" class="text-[10px] text-red-500 hover:text-red-600 font-black cursor-pointer">
+                🗑️ مسح الكل والبدء بقائمة فارغة
+              </button>
+            </div>
+            
+            <div class="border border-[#D9D3F0] rounded-2xl overflow-hidden text-xs max-h-60 overflow-y-auto">
+              <table class="w-full text-center border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-[#D9D3F0] sticky top-0">
+                    <th class="p-2.5 text-slate-600 font-extrabold text-right">رقم المقعد / التسلسل</th>
+                    <th class="p-2.5 text-slate-600 font-extrabold">الرقم الامتحاني</th>
+                    <th class="p-2.5 text-slate-600 font-extrabold">الاسم الثلاثي</th>
+                    <th class="p-2.5 text-slate-600 font-extrabold">حذف</th>
+                  </tr>
+                </thead>
+                <tbody id="exam-students-table-body">
+                  <!-- Generated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div class="flex justify-end pt-3">
+            <button onclick="switchExamStep(3)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
+              الانتقال للخطوة الثالثة: القاعات والمقاعد ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3: HALLS CONFIG & SEATING MATRIX -->
+        <div id="exam-step-pane-3" class="hidden space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="font-black text-brand-dark text-lg">🏫 الخطوة الثالثة: إدارة القاعات وتهيئة مخطط المقاعد التفاعلي</h3>
+            <p class="text-slate-500 text-xs font-bold">تحديد أبعاد ومواقع مقاعد الجلوس لكل قاعة، وتحديد المقاعد المعطلة أو ممرات المرور بلمسة واحدة تفاعلياً.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <!-- Left config sidebar (4 cols) -->
+            <div class="lg:col-span-4 bg-slate-50 p-5 rounded-2xl border border-[#D9D3F0] space-y-4 text-xs">
+              <h4 class="font-black text-brand-dark">➕ إضافة قاعة جديدة</h4>
+              <form id="add-hall-form" onsubmit="handleAddNewHall(event)" class="space-y-3">
+                <div>
+                  <label class="block font-bold mb-0.5">اسم القاعة</label>
+                  <input type="text" id="hall-form-name" required placeholder="مثال: القاعة الثانية (الطابق الثاني)" class="w-full p-2.5 border border-slate-200 rounded-xl bg-white outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block font-bold mb-0.5">عدد الصفوف الأفقي</label>
+                    <input type="number" id="hall-form-rows" required min="2" max="15" value="5" class="w-full p-2.5 border border-slate-200 rounded-xl bg-white outline-none">
+                  </div>
+                  <div>
+                    <label class="block font-bold mb-0.5">الأعمدة الرأسية</label>
+                    <input type="number" id="hall-form-cols" required min="2" max="15" value="6" class="w-full p-2.5 border border-slate-200 rounded-xl bg-white outline-none">
+                  </div>
+                </div>
+                <div>
+                  <label class="block font-bold mb-0.5">سعة المقعد الواحد</label>
+                  <select id="hall-form-capacity" class="w-full p-2.5 border border-slate-200 rounded-xl bg-white outline-none">
+                    <option value="1">طالب واحد بالمقعد (توزيع منفرد)</option>
+                    <option value="2">طالبين بالمقعد (توزيع ثنائي)</option>
+                  </select>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-brand text-white rounded-xl font-black cursor-pointer hover:bg-brand-dark transition-all">
+                  حفظ القاعة المحددة
+                </button>
+              </form>
+              
+              <!-- Halls lists -->
+              <div class="pt-3 border-t border-slate-200 space-y-2">
+                <h4 class="font-black text-brand-dark">🏫 القاعات المضافة</h4>
+                <div id="exam-halls-list-container" class="space-y-2">
+                  <!-- List populates here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive Seating map (8 cols) -->
+            <div class="lg:col-span-8 space-y-4">
+              <div class="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between text-xs">
+                <div>
+                  <h4 id="active-hall-title-display" class="font-extrabold text-brand-dark">اختر قاعة لعرض المخطط البصري</h4>
+                  <p class="text-[10px] text-slate-500 mt-0.5 font-bold">انقر على أي مقعد في الشبكة أدناه لتغيير حالته: (عادي 🟢 | معطل 🔴 | ممر استراحة ⚪)</p>
+                </div>
+                
+                <!-- Indicators -->
+                <div class="flex gap-2">
+                  <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-emerald-500"></span> عادي</span>
+                  <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-red-500"></span> معطل</span>
+                  <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-amber-500"></span> استبعاد</span>
+                  <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-slate-200"></span> ممر</span>
+                </div>
+              </div>
+              
+              <!-- SEATING GRID CANVAS -->
+              <div class="bg-white border border-[#D9D3F0] rounded-3xl p-6 shadow-sm overflow-x-auto">
+                <div id="interactive-seating-grid" class="grid gap-2.5 justify-center min-w-[500px]">
+                  <!-- Seating boxes generated dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-3">
+            <button onclick="switchExamStep(4)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
+              الانتقال للخطوة الرابعة: المساعد الحواري ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 4: CHAT ADVISOR WITH MULTIPLE AGENTS -->
+        <div id="exam-step-pane-4" class="hidden space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="font-black text-brand-dark text-lg">🤖 الخطوة الرابعة: المساعد الحواري الذكي لإعداد الخطة وتوزيع المقاعد</h3>
+            <p class="text-slate-500 text-xs font-bold">ناقش قواعد التوزيع، متطلبات التباعد، واكتشاف الأخطاء مع المستشار الافتراضي أوفلاين قبل تنفيذ الخوارزمية.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+            <!-- Predefined AI suggestions triggers (4 cols) -->
+            <div class="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-[#D9D3F0] space-y-4 text-xs">
+              <h4 class="font-black text-brand-dark flex items-center gap-1">
+                <span>⚡ اقتراحات واختصارات حوارية سريعة</span>
+              </h4>
+              <p class="text-[10px] text-slate-500 font-bold">انقر على أحد الأزرار الجاهزة أدناه للحصول على تقييم فوري من المساعد الذكي لمراجعة المدخلات الحالية.</p>
+              
+              <div class="space-y-2 pt-1">
+                <button onclick="triggerExamAdvisorCommand('check_capacity')" class="w-full text-right p-3 bg-white border border-[#D9D3F0] hover:border-brand rounded-xl font-bold cursor-pointer hover:bg-brand-light/20 transition-all flex items-center gap-2">
+                  <span>📊 تحليل ومقارنة سعة القاعات مع الطلبة</span>
+                </button>
+                <button onclick="triggerExamAdvisorCommand('optimize_spacing')" class="w-full text-right p-3 bg-white border border-[#D9D3F0] hover:border-brand rounded-xl font-bold cursor-pointer hover:bg-brand-light/20 transition-all flex items-center gap-2">
+                  <span>📐 اقتراح تباعد المقاعد المضمون</span>
+                </button>
+                <button onclick="triggerExamAdvisorCommand('check_clashes')" class="w-full text-right p-3 bg-white border border-[#D9D3F0] hover:border-brand rounded-xl font-bold cursor-pointer hover:bg-brand-light/20 transition-all flex items-center gap-2">
+                  <span>⚠️ الكشف عن أخطاء وتكرار الأرقام</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Chat screen itself (8 cols) -->
+            <div class="md:col-span-8 flex flex-col border border-[#D9D3F0] rounded-3xl overflow-hidden h-[450px]">
+              <div class="bg-[#F3F0FC] px-4 py-3 border-b border-[#D9D3F0] flex items-center gap-2 text-brand-dark">
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span class="text-xs font-black">مستشار القاعات الذكي (أوفلاين 🛡️)</span>
+              </div>
+              
+              <div id="exam-chat-scroller" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/20 text-xs">
+                <!-- Message items populated on fly -->
+              </div>
+              
+              <form id="exam-chat-form" onsubmit="handleSendExamAdvisorMessage(event)" class="bg-white p-2.5 border-t border-[#D9D3F0] flex items-center gap-2">
+                <input type="text" id="exam-advisor-input" placeholder="مثال: هل تكفي قاعاتي لـ 80 طالباً؟" class="flex-1 px-3 py-2 border border-[#D9D3F0] rounded-xl outline-none text-xs">
+                <button type="submit" class="p-2 bg-brand text-white rounded-xl shadow cursor-pointer">
+                  ➔
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-3">
+            <button onclick="switchExamStep(5)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
+              الانتقال للخطوة الخامسة: تقسيم القطاعات ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 5: SECTORS CONFIGURATION -->
+        <div id="exam-step-pane-5" class="hidden space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="font-black text-brand-dark text-lg">📐 الخطوة الخامسة: تقسيم وتوزيع القطاعات داخل القاعة الامتحانية</h3>
+            <p class="text-slate-500 text-xs font-bold">تقسيم القاعات الكبرى إلى قطاعات فرعية مستقلة (يمين، يسار، وسط) وتخصيص شعب/صفوف محددة لكل منها لتسهيل المراقبة وتفادي الغش.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <!-- Sector Form -->
+            <div class="bg-slate-50 p-5 rounded-2xl border border-[#D9D3F0] space-y-3">
+              <h4 class="font-black text-brand-dark">⚙️ تعريف قطاع جديد</h4>
+              <form id="sector-config-form" onsubmit="handleSaveSector(event)" class="space-y-2.5">
+                <div>
+                  <label class="block font-bold">اختر القاعة المستهدفة</label>
+                  <select id="sector-hall-select" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <!-- Populated dynamic -->
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold">اسم القطاع</label>
+                  <input type="text" id="sector-name" required placeholder="مثال: القطاع الأول (اليمين)" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                </div>
+                <div>
+                  <label class="block font-bold">موقع القطاع بالشبكة</label>
+                  <select id="sector-position" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <option value="right">اليمين (أعمدة البداية)</option>
+                    <option value="left">اليسار (أعمدة النهاية)</option>
+                    <option value="center">الوسط (الأعمدة الوسطى)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold">الصف المخصص للقطاع</label>
+                  <input type="text" id="sector-grade" required placeholder="مثال: السادس العلمي" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                </div>
+                <div>
+                  <label class="block font-bold">الشعبة المخصصة</label>
+                  <input type="text" id="sector-division" required placeholder="أ" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                </div>
+                <div>
+                  <label class="block font-bold">اتجاه قراءة جلوس المقاعد</label>
+                  <select id="sector-direction" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <option value="right_to_left">من اليمين إلى اليسار (أفقي)</option>
+                    <option value="left_to_right">من اليسار إلى اليمين (أفقي)</option>
+                  </select>
+                </div>
+                
+                <button type="submit" class="w-full py-2.5 bg-brand text-white rounded-xl font-bold cursor-pointer hover:bg-brand-dark transition-all">
+                  ✓ حفظ وتخصيص القطاع
+                </button>
+              </form>
+            </div>
+
+            <!-- Sector display list (2/3 cols) -->
+            <div class="md:col-span-2 space-y-3">
+              <h4 class="font-black text-brand-dark">📋 القطاعات وتخصيص الشعب الفعلي بقاعات الامتحان</h4>
+              <div id="exam-sectors-grid-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Dynamically populated card items -->
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-3">
+            <button onclick="switchExamStep(6)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
+              الانتقال للخطوة السادسة: المراقبين ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 6: PROCTORS / INVIGILATORS DESIGN -->
+        <div id="exam-step-pane-6" class="hidden space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="font-black text-brand-dark text-lg">👩‍🏫 الخطوة السادسة: توزيع المراقبين والمشرفين على قاعات الامتحان</h3>
+            <p class="text-slate-500 text-xs font-bold">تعريف أسماء كوادر المراقبة (مراقب قاعة رئيسي، مراقب قطاع، احتياط) وربطهم فورياً بالصفوف المخصصة لمنع الغش.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <!-- Proctor Form -->
+            <div class="bg-slate-50 p-5 rounded-2xl border border-[#D9D3F0] space-y-3">
+              <h4 class="font-black text-brand-dark">⚙️ تعريف مراقب جديد</h4>
+              <form id="proctor-config-form" onsubmit="handleSaveProctor(event)" class="space-y-2.5">
+                <div>
+                  <label class="block font-bold">اسم المعلم / المعلمة</label>
+                  <input type="text" id="proctor-name" required placeholder="مثال: أ. عمر الخفاجي" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                </div>
+                <div>
+                  <label class="block font-bold">الصفة والمسؤولية</label>
+                  <select id="proctor-role" onchange="toggleProctorRoleDropdowns()" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <option value="hall">مراقب قاعة رئيسي (مشرف القاعة)</option>
+                    <option value="sector">مراقب قطاع فرعي</option>
+                    <option value="reserve">احتياطي عام</option>
+                  </select>
+                </div>
+                <div id="proctor-hall-div" class="hidden">
+                  <label class="block font-bold">القاعة المسندة</label>
+                  <select id="proctor-hall-select" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+                    <!-- Dynamic -->
+                  </select>
+                </div>
+                
+                <button type="submit" class="w-full py-2.5 bg-brand text-white rounded-xl font-bold cursor-pointer hover:bg-brand-dark transition-all">
+                  ✓ إضافة مراقب للجلسة
+                </button>
+              </form>
+            </div>
+
+            <!-- Proctors List (2 cols) -->
+            <div class="md:col-span-2 space-y-3">
+              <h4 class="font-black text-brand-dark">👥 كادر المراقبة والاحتياط المسجل</h4>
+              <div id="exam-proctors-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-3">
+            <button onclick="switchExamStep(7)" class="px-6 py-2.5 bg-brand text-white rounded-xl font-black shadow-md cursor-pointer hover:bg-brand-dark transition-all">
+              الانتقال للخطوة السابعة: توليد التوزيع ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 7: TRIGGER DISTRIBUTION AND SUMMARY DIAGRAMS -->
+        <div id="exam-step-pane-7" class="hidden space-y-4">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="font-black text-brand-dark text-lg">⚡ الخطوة السابعة: تشغيل محرك التوزيع الذكي والتحقق التلقائي من الجودة</h3>
+            <p class="text-slate-500 text-xs font-bold">ضبط قواعد خوارزمية السلسلة والمسافة، وتوليد المقاعد فورياً للطلاب، وتشخيص أي مخالفات لشروط التباعد الوزاري.</p>
+          </div>
+
+          <div class="max-w-xl mx-auto bg-slate-50 p-6 rounded-3xl border border-[#D9D3F0] text-xs space-y-4">
+            <h4 class="font-black text-brand-dark text-sm text-center">⚙️ خيارات ومحددات التوزيع والتباعد</h4>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold text-slate-500 mb-1">تسلسل وترتيب الطلاب</label>
+                <select id="dist-sort-config" class="w-full p-2.5 border border-slate-200 rounded-xl bg-white outline-none font-bold">
+                  <option value="rollNumber">حسب الرقم الامتحاني (تسلسلي تصاعدي)</option>
+                  <option value="alphabetical">أبجدياً حسب الاسم الثلاثي</option>
+                  <option value="random">عشوائي بالكامل لمنع الغش والاتفاق</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-500 mb-1">نمط تباعد مقاعد الجلوس</label>
+                <select id="dist-spacing-config" class="w-full p-2.5 border border-slate-200 rounded-xl bg-white outline-none font-bold">
+                  <option value="none">بدون تباعد (إشغال كامل لكافة المقاعد)</option>
+                  <option value="one">تباعد مقعد واحد (تخطي مقعد فارغ بين طالبين)</option>
+                  <option value="two">تباعد مقعدين (شغل مقعد واحد وترك مقعدين فارغين)</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2 space-y-2 pt-1.5">
+                <label class="flex items-center gap-2 font-bold cursor-pointer">
+                  <input type="checkbox" id="dist-allow-multi-grade-sector" class="rounded text-brand w-4 h-4">
+                  <span>السماح بخلط المراحل والشعب في نفس القطاع إذا لزم الأمر</span>
+                </label>
+                <label class="flex items-center gap-2 font-bold cursor-pointer">
+                  <input type="checkbox" id="dist-allow-multi-grade-hall" checked class="rounded text-brand w-4 h-4">
+                  <span>السماح بوجود أكثر من صف/شعبة دراسية في نفس القاعة الكبرى</span>
+                </label>
+              </div>
+            </div>
+
+            <button onclick="triggerAutoDistribution Seating()" class="w-full py-3 bg-gradient-to-r from-[#3E176D] to-[#7641B4] text-white rounded-2xl font-black text-sm cursor-pointer shadow-lg hover:opacity-95 transition-all text-center">
+              ⚡ تشغيل خوارزمية التوزيع وتوليد مخطط الجلوس الذكي
+            </button>
+          </div>
+
+          <!-- Quality Diagnostics result -->
+          <div id="exam-distribution-checks-banner" class="hidden bg-slate-50 border border-[#D9D3F0] rounded-3xl p-5 space-y-3 text-xs animate-fade-in">
+            <h4 class="font-extrabold text-brand-dark flex items-center gap-1.5">
+              <span>📊 تشخيص جودة الخطة المحدثة</span>
+            </h4>
+            <div id="exam-quality-errors-list" class="space-y-1.5">
+              <!-- Warnings list -->
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 8: REPORTS, EXPORTS & PRINTING -->
+        <div id="exam-step-pane-8" class="hidden space-y-6">
+          <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+            <div>
+              <h3 class="font-black text-brand-dark text-lg">🖨️ الخطوة الثامنة: التقارير والبطاقات وجداول توزيع المقاعد الجاهزة للطباعة</h3>
+              <p class="text-slate-500 text-xs font-bold">معاينة وتصدير الكشوفات الامتحانية الرسمية وبطاقات المقاعد الشخصية للطلاب ومحاضر المراقبة.</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button onclick="printOfficialExamDocuments()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs cursor-pointer shadow flex items-center gap-1.5">
+                <span>🖨️ طباعة المستندات الرسمية</span>
+              </button>
+              <button onclick="exportExamStudentsToCsv()" class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs cursor-pointer flex items-center gap-1.5">
+                <span>📊 تصدير Excel (CSV)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Reports sub tabs (no-print) -->
+          <div class="no-print flex flex-wrap gap-2 border-b border-slate-100 pb-2.5 text-xs font-bold">
+            <button onclick="setExamReportTab('cards')" id="btn-rep-cards" class="px-4 py-2 rounded-xl transition-all cursor-pointer">🎫 بطاقات المقاعد والطلاب</button>
+            <button onclick="setExamReportTab('registers')" id="btn-rep-registers" class="px-4 py-2 rounded-xl transition-all cursor-pointer">📋 كشوفات الأسماء الرسمية</button>
+            <button onclick="setExamReportTab('maps')" id="btn-rep-maps" class="px-4 py-2 rounded-xl transition-all cursor-pointer">🗺️ المخطط البصري للقاعات</button>
+            <button onclick="setExamReportTab('proctors')" id="btn-rep-proctors" class="px-4 py-2 rounded-xl transition-all cursor-pointer">👥 كشوفات ومحاضر المراقبة</button>
+          </div>
+
+          <!-- REPORTS SUB-PANE: CARDS -->
+          <div id="exam-rep-pane-cards" class="space-y-4">
+            <div class="no-print bg-slate-50 p-4 rounded-xl text-slate-500 text-xs leading-relaxed font-bold">
+              تنبيه: يمكنك قص هذه البطاقات وتلصيقها على أدراج المقاعد أو توزيعها على الطلاب لإرشادهم لبوابات الجلوس.
+            </div>
+            
+            <div id="print-cards-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Seat cards rendered here -->
+            </div>
+          </div>
+
+          <!-- REPORTS SUB-PANE: REGISTERS -->
+          <div id="exam-rep-pane-registers" class="hidden">
+            <div id="print-registers-table-container" class="border border-[#D9D3F0] rounded-2xl overflow-hidden text-xs bg-white">
+              <!-- Dynamically populated table list -->
+            </div>
+          </div>
+
+          <!-- REPORTS SUB-PANE: VISUAL MAPS -->
+          <div id="exam-rep-pane-maps" class="hidden space-y-6">
+            <div id="print-visual-maps-container" class="space-y-6">
+              <!-- Seating maps for each hall -->
+            </div>
+          </div>
+
+          <!-- REPORTS SUB-PANE: PROCTORS -->
+          <div id="exam-rep-pane-proctors" class="hidden">
+            <div id="print-proctors-table-container" class="border border-[#D9D3F0] rounded-2xl overflow-hidden text-xs bg-white">
+              <!-- Proctors table -->
+            </div>
+          </div>
+          
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==============================================
+       4. INTERACTIVE DIALOG MODALS (NO-PRINT)
+       ============================================== -->
+  
+  <!-- 4.A SMART CREATOR WIZARD MODAL -->
+  <dialog id="modal-wizard" class="no-print rounded-3xl border border-[#D9D3F0] p-0 shadow-2xl backdrop:bg-slate-900/60 w-full max-w-xl outline-none">
+    <div class="bg-gradient-to-r from-brand-dark to-brand p-5 text-white flex items-center justify-between">
+      <h3 class="font-extrabold text-base flex items-center gap-2">
+        <span>🪄 معالج التوليد الذكي للجداول ودراسات البكالوريا</span>
+      </h3>
+      <button onclick="closeWizardModal()" class="text-white hover:text-slate-200 text-sm font-bold cursor-pointer">إغلاق ×</button>
+    </div>
+    
+    <div class="p-6 text-xs text-[#1D2433] space-y-4">
+      <!-- Wizard Steps indicators -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 text-slate-400 font-bold">
+        <span id="wiz-step-ind-1">1. نمط الجدول</span>
+        <span id="wiz-step-ind-2">2. توقيتك اليومي</span>
+        <span id="wiz-step-ind-3">3. اختيار المواد</span>
+      </div>
+      
+      <!-- Wizard Step 1: Type & name -->
+      <div id="wizard-pane-1" class="space-y-3">
+        <div>
+          <label class="block font-black mb-1">اسم الجدول المخصص</label>
+          <input type="text" id="wiz-name" placeholder="مثال: جدول البكالوريا المكثف الأسبوعي" class="w-full p-3 border border-slate-200 rounded-xl outline-none font-semibold text-[#1D2433]">
+        </div>
+        <div>
+          <label class="block font-black mb-1">طبيعة ونمط جدول الدراسة</label>
+          <select id="wiz-type" class="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none font-bold">
+            <option value="weekly">جدول أسبوعي تفاعلي ذكي (من الجمعة للخميس)</option>
+            <option value="daily">جدول يومي ذكي ومبسط</option>
+            <option value="revision">خطة مراجعة مكثفة نهائية (لمدة شهر)</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Wizard Step 2: Wake/Sleep times -->
+      <div id="wizard-pane-2" class="hidden space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-black mb-1">توقيت الاستيقاظ</label>
+            <input type="time" id="wiz-wake" value="07:00" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none bg-white">
+          </div>
+          <div>
+            <label class="block font-black mb-1">توقيت النوم</label>
+            <input type="time" id="wiz-sleep" value="23:00" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none bg-white">
+          </div>
+          <div>
+            <label class="block font-black mb-1">وقت وجبة الغداء</label>
+            <input type="time" id="wiz-lunch" value="13:00" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none bg-white">
+          </div>
+          <div>
+            <label class="block font-black mb-1">وقت وجبة العشاء</label>
+            <input type="time" id="wiz-dinner" value="20:00" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none bg-white">
+          </div>
+          <div>
+            <label class="block font-black mb-1">عدد الحصص والدروس باليوم</label>
+            <input type="number" id="wiz-lessons-count" min="2" max="10" value="5" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none">
+          </div>
+          <div>
+            <label class="block font-black mb-1">مدة درس المذاكرة (دقائق)</label>
+            <input type="number" id="wiz-lesson-duration" min="20" max="120" value="45" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Wizard Step 3: Subjects Selection -->
+      <div id="wizard-pane-3" class="hidden space-y-3">
+        <label class="block font-black">اختر المواد الدراسية لإضافتها وتوزيعها بالجدول</label>
+        <p class="text-[10px] text-slate-500 font-bold mb-1">تطبيق مدرسي: نقوم بتوزيع المواد المحددة تلقائياً في الخانات الفارغة بتوازن تام.</p>
+        
+        <div id="wizard-subjects-checkboxes" class="grid grid-cols-2 gap-2.5 max-h-40 overflow-y-auto p-1.5 border border-slate-100 rounded-xl">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      
+      <!-- Actions buttons -->
+      <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+        <button onclick="handleWizardPrev()" id="btn-wiz-prev" class="hidden px-4 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-bold cursor-pointer hover:bg-slate-100 transition-all">➔ السابق</button>
+        <div></div>
+        <button onclick="handleWizardNext()" id="btn-wiz-next" class="px-5 py-2.5 bg-brand text-white rounded-xl font-black cursor-pointer shadow-md hover:bg-brand-dark transition-all">التالي ➔</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 4.B CELL SPECIFICS EDITOR DIALOG -->
+  <dialog id="modal-cell-editor" class="no-print rounded-3xl border border-[#D9D3F0] p-0 shadow-2xl backdrop:bg-slate-900/60 w-full max-w-sm outline-none">
+    <div class="bg-brand p-4 text-white flex items-center justify-between">
+      <h3 class="font-extrabold text-xs">📝 تعديل تفاصيل وموضوع الدرس الدراسي</h3>
+      <button onclick="closeCellEditorModal()" class="text-white font-bold cursor-pointer">×</button>
+    </div>
+    
+    <form id="cell-editor-form" onsubmit="handleSaveCellEdits(event)" class="p-5 text-xs space-y-3.5">
+      <div>
+        <label class="block font-black mb-1">مادة الدراسة</label>
+        <input type="text" id="edit-cell-subject" required class="w-full p-2.5 border border-slate-200 rounded-xl outline-none">
+      </div>
+      <div>
+        <label class="block font-black mb-1">الموضوع الدراسي الفرعي</label>
+        <input type="text" id="edit-cell-topic" placeholder="مثال: الفصل الأول - ديموافر" class="w-full p-2.5 border border-slate-200 rounded-xl outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block font-black mb-1">نمط الدراسة</label>
+          <select id="edit-cell-type" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+            <option value="study">دراسة وحفظ</option>
+            <option value="review">مراجعة وتلخيص</option>
+            <option value="solve">حل تمارين ومسائل</option>
+            <option value="ministerial">حل أسئلة وزارية</option>
+            <option value="rest">استراحة</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-black mb-1">حالة الإنجاز</label>
+          <select id="edit-cell-status" class="w-full p-2 border border-slate-200 rounded-xl bg-white outline-none">
+            <option value="upcoming">قادم (غير منجز)</option>
+            <option value="completed">مكتمل بنجاح ✓</option>
+            <option value="delayed">متأخر ⚠️</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block font-black mb-1">ملاحظات دراسية مخصصة</label>
+        <textarea id="edit-cell-notes" rows="2" class="w-full p-2 border border-slate-200 rounded-xl outline-none"></textarea>
+      </div>
+      
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 py-2.5 bg-brand text-white rounded-xl font-bold cursor-pointer hover:bg-brand-dark transition-all">حفظ التغييرات</button>
+        <button type="button" onclick="handleDeleteCell()" class="px-3 py-2.5 bg-red-50 text-red-500 border border-red-100 rounded-xl font-bold cursor-pointer hover:bg-red-100 transition-all">إزالة الدرس</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ==============================================
+       5. FOOTER & COPYRIGHT (NO-PRINT)
+       ============================================== -->
+  <footer class="no-print bg-white border-t border-[#E9E6FA] py-5 mt-12 text-center text-xs text-slate-400 font-bold">
+    <div class="max-w-7xl mx-auto px-4">
+      <p>حقوق النشر والتعلم محفوظة © تطبيق مدرسي الذكي 2026. طوّر بكل فخر واعتزاز لخدمة التعليم البكالوريا في العراق العظيم 🇮🇶.</p>
+    </div>
+  </footer>
+
+  <!-- CORE SCRIPTS LOADING -->
+  <script src="./assets/js/data.js" defer></script>
+  <script src="./assets/js/storage.js" defer></script>
+  <script src="./assets/js/planner.js" defer></script>
+  <script src="./assets/js/export.js" defer></script>
+  <script src="./assets/js/app.js" defer></script>
+</body>
+</html>

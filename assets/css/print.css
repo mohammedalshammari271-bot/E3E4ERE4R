@@ -1,0 +1,69 @@
+/* STRICT PRINT LAYOUT OVERRIDES */
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Force print background colors */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Print cards container */
+  .print-card-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 15px !important;
+    page-break-inside: auto !important;
+  }
+
+  .print-card {
+    border: 1.5px solid #1a1a1a !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+    background-color: #ffffff !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #333333 !important;
+    padding: 8px !important;
+    text-align: center !important;
+  }
+
+  th {
+    background-color: #f3f4f6 !important;
+    font-weight: bold !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 1cm;
+  }
+}
