@@ -3,7 +3,7 @@ import {
   Sparkles, Send, ShieldCheck, HelpCircle, BookOpen, Clock, AlertTriangle, 
   Calendar, Check, X, Award, Flame, Zap, Compass, RotateCcw, Play
 } from 'lucide-react';
-import { Schedule, StudentProfile, ScheduleCell } from '../types';
+import { Schedule, StudentProfile, ScheduleCell, IRAQI_DAYS } from '../types';
 import { SUBJECTS_BY_GRADE } from '../constants/subjects';
 import { generateRevisionPlan } from '../utils/generators';
 
@@ -284,21 +284,28 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
   // 🚨 MULTI-TURN EMERGENCY PLAN SIMULATOR
   const startEmergencySimulator = () => {
     setEmergencyStep(1);
+    // Initialize temporary state for emergency questions
+    setEmergencyData({
+      studentName: studentProfile?.studentName || '',
+      stageAndGrade: studentProfile?.gradeClass || '',
+      examSubjectsCount: 5,
+      subject: '',
+      startDate: new Date().toISOString().split('T')[0],
+      examDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      remainingDays: 5,
+      studyHours: 8,
+      restHours: 8,
+      readinessRating: 'متوسط', // ممتاز، جيد جداً، متوسط، ضعيف
+    });
+
     const newMsg: Message = {
       id: `emergency-step-1-${Date.now()}`,
       sender: 'assistant',
       text: `🚨 **مرحباً بك في محاكي ومخطط خطة الطوارئ للامتحانات!**
-سأطرح عليك أسئلة بسيطة خطوة بخطوة، ثم أقوم بحساب متبقي الساعات وتوليد جدول دراسي مكثف حقيقي مناسب لحالتك لإنقاذ الموقف ودخول الامتحان بجاهزية تامة.
+سأطرح عليك **10 أسئلة** مرتبة بدقة لمساعدتنا على حساب ساعاتك المتاحة وحجم المادة وتوليد جدول زمني حقيقي وفعال ينقذ الموقف.
 
-**السؤال الأول:** ما هي المادة الدراسية التي تواجه طوارئ في امتحانها القادم وترغب في إنقاذها؟`,
+**السؤال الأول:** ما هو اسمك الثلاثي ولقبك الكريم؟`,
       timestamp: formatTime(new Date()),
-      options: [
-        { label: '🧪 الكيمياء', value: 'CHEM' },
-        { label: '⚡ الفيزياء', value: 'PHYS' },
-        { label: '📐 الرياضيات', value: 'MATH' },
-        { label: '📝 اللغة العربية', value: 'ARAB' },
-        { label: '📚 مادة مخصصة أخرى', value: 'OTHER_SUB' }
-      ]
     };
     setMessages(prev => [...prev, newMsg]);
   };
@@ -325,60 +332,121 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
       setIsTyping(false);
 
       if (nextStep === 2) {
-        // We got the subject. Save it.
-        const subjectName = value === 'CHEM' ? 'الكيمياء' : value === 'PHYS' ? 'الفيزياء' : value === 'MATH' ? 'الرياضيات' : value === 'ARAB' ? 'اللغة العربية' : 'مادة الطوارئ';
-        setEmergencyData(prev => ({ ...prev, subject: subjectName }));
+        // Step 1 input was studentName
+        setEmergencyData(prev => ({ ...prev, studentName: value }));
+        nextText = `📝 تشرّفنا بك يا بطل **${value}**.
 
-        nextText = `📝 ممتاز، تم اختيار مادة **${subjectName}**.
-        
-**السؤال الثاني:** متى يصادف موعد امتحان هذه المادة؟ (يرجى اختيار التاريخ)`;
-        type = 'emergency_form';
-      } else if (nextStep === 3) {
-        // We got date from form. Now ask about readiness
-        nextText = `📊 **السؤال الثالث:** ما هو تقييمك لمستوى جاهزيتك وفهمك الحالي للمادة من ١٠٠٪؟`;
+**السؤال الثاني:** ما هي مرحلتك وصفك الدراسي الحالي؟`;
         options = [
-          { label: '🔴 ضعيف جداً (تراكم كامل) ٠-٣٠٪', value: '30' },
-          { label: '🟡 متوسط (أحتاج لمراجعة وحل) ٣٠-٧٠٪', value: '60' },
-          { label: '🟢 جيد جداً (أحتاج فقط لوزاريات) ٧٠-١٠٠٪', value: '85' }
+          { label: 'السادس العلمي (منتهي 🎓)', value: 'السادس العلمي' },
+          { label: 'السادس الأدبي (منتهي 🎓)', value: 'السادس الأدبي' },
+          { label: 'الثالث المتوسط (منتهي 🎓)', value: 'الثالث المتوسط' },
+          { label: 'السادس الابتدائي (منتهي 🎓)', value: 'السادس الابتدائي' },
+          { label: 'صف آخر غير منتهي', value: 'صف غير منتهي' }
+        ];
+      } else if (nextStep === 3) {
+        // Step 2 input was stageAndGrade
+        setEmergencyData(prev => ({ ...prev, stageAndGrade: value }));
+        nextText = `📚 رائع جداً، الله يوفقك في صفك **${value}**.
+
+**السؤال الثالث:** ما هو عدد مواد الامتحان التي تستعد لها في هذا الدور الدراسي؟`;
+        options = [
+          { label: '٤ مواد', value: '4' },
+          { label: '٥ مواد', value: '5' },
+          { label: '٦ مواد', value: '6' },
+          { label: '٧ مواد', value: '7' },
+          { label: '٨ مواد', value: '8' }
         ];
       } else if (nextStep === 4) {
-        // We got readiness. Save.
-        setEmergencyData(prev => ({ ...prev, readiness: Number(value) }));
+        // Step 3 input was examSubjectsCount
+        setEmergencyData(prev => ({ ...prev, examSubjectsCount: Number(value) }));
+        nextText = `⚠️ تمام، الاستعداد لـ (${value}) مواد يتطلب تنظيماً ذكياً.
 
-        nextText = `📚 **السؤال الرابع:** كم عدد الدروس أو الأبواب/الفصول المتبقية التي لم تقم بإنهاء دراستها بعد؟`;
+**السؤال الرابع:** ما هي المادة الدراسية المتأخرة والحرجة التي ترغب في جدولتها فوراً وإنقاذها؟`;
         options = [
-          { label: '📖 ٣ فصول أو أقل (متبقي بسيط)', value: '6' },
-          { label: '📖 ٤ إلى ٦ فصول (تراكم متوسط)', value: '12' },
-          { label: '📖 أكثر من ٦ فصول (تراكم كبير جداً)', value: '18' }
+          { label: '🧪 الكيمياء', value: 'الكيمياء' },
+          { label: '⚡ الفيزياء', value: 'الفيزياء' },
+          { label: '📐 الرياضيات', value: 'الرياضيات' },
+          { label: '📝 اللغة العربية', value: 'اللغة العربية' },
+          { label: '🌍 الاجتماعيات / أخرى', value: 'الاجتماعيات' }
         ];
       } else if (nextStep === 5) {
-        // We got uncompleted. Save.
-        setEmergencyData(prev => ({ ...prev, lessonsUncompleted: Number(value) }));
+        // Step 4 input was subject
+        setEmergencyData(prev => ({ ...prev, subject: value }));
+        nextText = `⏱️ اختيار موفق، سنركز جهودنا على إنقاذ مادة **${value}**.
 
-        nextText = `⚡ **السؤال الخامس:** كم عدد الساعات اليومية التي تستطيع تخصيصها للمذاكرة المكثفة حالياً؟`;
-        options = [
-          { label: '🕓 ٣ ساعات يومياً (خطة مخففة)', value: '3' },
-          { label: '🕕 ٥ ساعات يومياً (خطة متوازنة)', value: '5' },
-          { label: '🕗 ٨ ساعات يومياً (خطة مكثفة جداً للمحترفين)', value: '8' }
-        ];
+**السؤال الخامس:** ما هو تاريخ بداية خطة الطوارئ والإنقاذ التي تود الانطلاق بها؟`;
+        type = 'emergency_form'; // We will render date pickers below based on step
       } else if (nextStep === 6) {
-        // We got hours. Save.
-        setEmergencyData(prev => ({ ...prev, studyHours: Number(value) }));
+        // Step 5 input was startDate
+        setEmergencyData(prev => ({ ...prev, startDate: value }));
+        nextText = `📅 ممتاز، تبدأ الخطة في تاريخ **${value}**.
 
-        nextText = `⚖️ **السؤال السادس:** ما هو الأسلوب وطريقة التركيز التي تفضلها في خطة الطوارئ؟`;
-        options = [
-          { label: '🎯 تركيز وزاري (حل الدفاتر والأسئلة الوزارية فقط)', value: 'ministerial' },
-          { label: '🧠 تركيز متوازن (دراسة مفاهيم + حل وزاريات)', value: 'balanced' },
-          { label: '📖 مراجعة نظرية سريعة وتلخيصات', value: 'review' }
-        ];
+**السؤال السادس:** ما هو تاريخ نهاية الخطة (تاريخ امتحان مادة ${emergencyData.subject} المتراكمة)؟`;
+        type = 'emergency_form';
       } else if (nextStep === 7) {
-        // We got style. Save and Generate the actual plan!
-        const focusStyle = value;
-        setEmergencyData(prev => ({ ...prev, focusStyle }));
+        // Step 6 input was examDate
+        const examDateVal = value;
+        const start = new Date(emergencyData.startDate);
+        const end = new Date(examDateVal);
+        const diffTime = end.getTime() - start.getTime();
+        const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-        // Now calculate and generate the schedule!
-        generateAndShowEmergencyPlan({ ...emergencyData, focusStyle });
-        return; // handle final step separately
+        setEmergencyData(prev => ({ ...prev, examDate: examDateVal, remainingDays: calculatedDays }));
+
+        nextText = `📅 تاريخ الامتحان هو **${examDateVal}**.
+        
+**السؤال السابع:** لقد قمت بحساب عدد الأيام الفعلية المتبقية تلقائياً ووجدتها **(${calculatedDays}) أيام**. هل تؤكد هذا الرقم أم تود تغييره يدوياً؟`;
+        options = [
+          { label: `✅ نعم، تأكيد (${calculatedDays}) أيام`, value: String(calculatedDays) },
+          { label: '✏️ تعديل إلى ٣ أيام', value: '3' },
+          { label: '✏️ تعديل إلى ٥ أيام', value: '5' },
+          { label: '✏️ تعديل إلى ٧ أيام', value: '7' },
+          { label: '✏️ تعديل إلى ١٠ أيام', value: '10' }
+        ];
+      } else if (nextStep === 8) {
+        // Step 7 input was remainingDays
+        setEmergencyData(prev => ({ ...prev, remainingDays: Number(value) }));
+        nextText = `⚡ رائع، الخطة ممتدة على مدار **${value} أيام**.
+
+**السؤال الثامن:** كم عدد الساعات اليومية التي تستطيع تخصيصها للمذاكرة الصارمة والمركزة حالياً؟`;
+        options = [
+          { label: '🕓 ٣ ساعات (خطة منقذة مخففة)', value: '3' },
+          { label: '🕕 ٥ ساعات (خطة متوازنة جيدة)', value: '5' },
+          { label: '🕗 ٨ ساعات (خطة طوارئ مكثفة للمتميزين)', value: '8' },
+          { label: '🕛 ١٢ ساعة (خطة طوارئ قصوى وعالية الكثافة)', value: '12' }
+        ];
+      } else if (nextStep === 9) {
+        // Step 8 input was studyHours
+        setEmergencyData(prev => ({ ...prev, studyHours: Number(value) }));
+        nextText = `🔋 ممتاز، تخصيص **${value} ساعات يومياً** للدراسة ممتاز.
+
+**السؤال التاسع:** كم ساعة ترغب في تخصيصها للراحة والنوم لشحن طاقتك يومياً لكي نضمن توازنك؟`;
+        options = [
+          { label: '🛌 ٦ ساعات يومياً', value: '6' },
+          { label: '🛌 ٨ ساعات يومياً (الخيار الصحي الموصى به)', value: '8' },
+          { label: '🛌 ١٠ ساعات يومياً', value: '10' }
+        ];
+      } else if (nextStep === 10) {
+        // Step 9 input was restHours
+        setEmergencyData(prev => ({ ...prev, restHours: Number(value) }));
+        nextText = `⚖️ رائع جداً، النوم والراحة الكافية هما أساس حفظ المعلومات.
+
+**السؤال العاشر والأخير:** كيف تقيّم مستواك وفهمك الحالي الحالي في مادة **${emergencyData.subject}**؟`;
+        options = [
+          { label: '🟢 ممتاز (أحتاج فقط لوزاريات ودفاتر سابقة)', value: 'ممتاز' },
+          { label: '🟡 جيد جداً (أحتاج للمراجعة وحل الوزاريات أساساً)', value: 'جيد جداً' },
+          { label: '🟠 متوسط (أحتاج لدراسة المفاهيم وحل المسائل)', value: 'متوسط' },
+          { label: '🔴 ضعيف (تراكم كبير وضيق شديد للوقت)', value: 'ضعيف' }
+        ];
+      } else if (nextStep === 11) {
+        // Step 10 input was readinessRating
+        const finalData = { ...emergencyData, readinessRating: value };
+        setEmergencyData(finalData);
+
+        // All 10 questions answered, generate and show final emergency plan
+        generateAndShowEmergencyPlan(finalData);
+        return;
       }
 
       setMessages(prev => [...prev, {
@@ -392,41 +460,111 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
   };
 
   const generateAndShowEmergencyPlan = (data: typeof emergencyData) => {
-    const today = new Date();
-    const exam = new Date(data.examDate);
-    const diffTime = exam.getTime() - today.getTime();
-    const remainingDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-    const totalStudyHours = remainingDays * data.studyHours;
+    const totalStudyHours = data.remainingDays * data.studyHours;
+    const isTerminal = ['السادس العلمي', 'السادس الأدبي', 'الثالث المتوسط', 'السادس الابتدائي'].includes(data.stageAndGrade);
 
-    // Build the schedule objects
-    const startStr = today.toISOString().split('T')[0];
-    const endStr = data.examDate;
+    // Build unique tasks for each period based on terminal vs non-terminal
+    // For terminal grades, we MUST alternate or include:
+    // 1. "دراسة وفهم"
+    // 2. "مراجعة وحل تمارين"
+    // 3. "حل الوزاريات"
+    // For non-terminal, just standard lesson types.
+    const lessonsCount = data.studyHours > 8 ? 5 : data.studyHours > 5 ? 4 : 3;
+    const lessonDuration = 50; // minutes
+
+    const formatMinutes = (minutes: number): string => {
+      const h = Math.floor(minutes / 60) % 24;
+      const m = minutes % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    // Let's create custom periods
+    const lessons: string[] = [];
+    const lessonTimes: { start: string; end: string }[] = [];
+    const ordinals = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن'];
+    
+    let currentStartMins = 8 * 60; // Start at 8:00 AM
+    for (let l = 0; l < lessonsCount; l++) {
+      lessons.push(`فترة الطوارئ ${ordinals[l] || (l + 1)}`);
+      lessonTimes.push({
+        start: formatMinutes(currentStartMins),
+        end: formatMinutes(currentStartMins + lessonDuration)
+      });
+      currentStartMins += lessonDuration + 20; // 20 mins break
+    }
+
+    const cells: Record<string, ScheduleCell> = {};
+    const taskCycleTerminal = [
+      { label: 'دراسة وفهم', type: 'study' as const },
+      { label: 'مراجعة وحل تمارين', type: 'review' as const },
+      { label: 'حل الوزاريات والأسئلة السابقة', type: 'ministerial' as const }
+    ];
+
+    const taskCycleNonTerminal = [
+      { label: 'مذاكرة المفاهيم الأساسية', type: 'study' as const },
+      { label: 'حل الواجبات والتمارين الصعبة', type: 'homework' as const },
+      { label: 'مراجعة وتلخيص الفصل', type: 'review' as const }
+    ];
 
     // Generate revision plan with generators
-    const generated = generateRevisionPlan(
-      `خطة طوارئ إنقاذ - مادة ${data.subject}`,
-      startStr,
-      endStr,
-      [data.subject, 'وزاريات الكيمياء', 'مراجعة مركزة', 'استراحة'],
-      data.studyHours > 5 ? 5 : 4,
-      50, // mins duration
-      'خطة طوارئ مكثفة',
-      studentProfile?.studentName || 'البطل',
-      studentProfile?.gradeClass || 'عام',
-      studentProfile?.stage || 'preparatory'
-    );
+    IRAQI_DAYS.forEach((day, dayIdx) => {
+      for (let l = 0; l < lessonsCount; l++) {
+        const cycleIdx = (dayIdx * lessonsCount + l) % 3;
+        const taskObj = isTerminal ? taskCycleTerminal[cycleIdx] : taskCycleNonTerminal[cycleIdx];
 
-    // Customize the notes field specifically for this student
-    generated.notes = `خطة إنقاذ مخصصة لمادة ${data.subject}. المتبقي للامتحان: ${remainingDays} أيام بمعدل ${data.studyHours} ساعات دراسة يومياً. إجمالي المذاكرة المتوقع: ${totalStudyHours} ساعة لتغطية ${data.lessonsUncompleted} فصول متبقية بنجاح.`;
+        // Format date offset based on dayIndex
+        const dateObj = new Date(data.startDate);
+        dateObj.setDate(dateObj.getDate() + dayIdx);
+        const dateStr = dateObj.toISOString().split('T')[0];
 
-    const nextText = `🏁 **اكتملت المحاكاة وحساب الخطة بنجاح!**
-بناءً على حسابات تطبيق مدرسي الذكي لظروفك الاستثنائية:
-• **الأيام المتبقية للامتحان:** ${remainingDays} أيام.
-• **إجمالي ساعات المذاكرة المتوفرة لك:** **${totalStudyHours} ساعة فعالة**.
-• **كثافة الخطة:** ${remainingDays < 3 ? '🔴 طوارئ قصوى (حرجة جداً!)' : remainingDays < 6 ? '🟡 طوارئ متوسطة (مقبولة)' : '🟢 خطة مريحة جداً بالتساوي'}.
+        cells[`${dayIdx}-${l}`] = {
+          subject: data.subject,
+          topic: `${taskObj.label} - المنهج المكثف`,
+          type: taskObj.type,
+          status: 'upcoming',
+          color: '#E9E6FA', // Soft elegant lavender
+          effort: l % 2 === 0 ? 'medium' : 'hard',
+          notes: `خطة إنقاذ مادة ${data.subject} المعتمدة لـ ${data.studentName}.`
+        };
+      }
+    });
 
-💡 **مقترح تطبيق مدرسي:** تم توليد جدول دراسي مكثف متكامل ومنظم في شبكة الجدول الرسمية ومقسم كدروس تفصيلية. 
-مرفق أدناه المعاينة المباشرة للخطة المقترحة. هل ترغب في **تأكيد وحفظ** هذا الجدول ليحل كجدول نشط وتتمكن من تتبعه وإنجازه فوراً؟`;
+    const generated: Schedule = {
+      id: `emergency-plan-${Date.now()}`,
+      studentName: data.studentName,
+      gradeClass: data.stageAndGrade,
+      stage: data.stageAndGrade.includes('الابتدائي') ? 'elementary' : data.stageAndGrade.includes('المتوسط') ? 'middle' : 'preparatory',
+      scheduleName: `خطة طوارئ إنقاذ - مادة ${data.subject}`,
+      scheduleType: 'خطة طوارئ معتمدة',
+      timePeriod: `من ${data.startDate} إلى ${data.examDate}`,
+      createdAt: new Date().toISOString().split('T')[0],
+      lastModified: new Date().toISOString().split('T')[0],
+      startDate: data.startDate,
+      endDate: data.examDate,
+      days: IRAQI_DAYS,
+      lessons,
+      lessonTimes,
+      cells,
+      notes: `خطة مخصصة لمادة ${data.subject} لإنقاذ الامتحان. الأيام المتاحة: ${data.remainingDays} أيام بمعدل ${data.studyHours} ساعات يومياً. إجمالي ساعات المذاكرة المتوقعة: ${totalStudyHours} ساعة. المستوى الحالي: ${data.readinessRating}.`,
+      completionRate: 0,
+      adherenceRate: 100,
+      studyHours: totalStudyHours,
+      completedCount: 0
+    };
+
+    const nextText = `🏁 **تهانينا يا بطل! اكتملت المحاكاة وحساب الخطة بنجاح!**
+بناءً على إجاباتك العشرة المفصلة لحالتك الخاصة:
+• **الطالب:** ${data.studentName}
+• **المرحلة والصف:** ${data.stageAndGrade}
+• **المادة المستهدفة بالإنقاذ:** ${data.subject} (التقييم: ${data.readinessRating})
+• **الأيام المتبقية للامتحان:** ${data.remainingDays} أيام.
+• **إجمالي ساعات المذاكرة المتوفرة لك:** **${totalStudyHours} ساعة دراسة فعالة**.
+• **كثافة خطة الطوارئ:** ${data.remainingDays < 4 ? '🔴 طوارئ قصوى وعالية الحرج' : data.remainingDays < 7 ? '🟡 مراجعة مكثفة ممتازة ومضغوطة' : '🟢 خطة دراسة متوازنة ومريحة بالتساوي'}.
+${isTerminal ? `💡 **ملاحظة بكالوريا هامّة:** نظراً لأنك في صف منتهٍ، تم تضمين فترات **"دراسة وفهم"**، و**"مراجعة وحل تمارين"**، و**"حل الوزاريات"** بالتساوي يومياً لضمان الفل مارك!` : `💡 **ملاحظة:** تم توليد دروس دراسية ومراجعات عامة وواجبات متوازنة يومياً تناسب صفك وتضمن تمكنك الكامل.`}
+
+لقد قمت بتوليد جدول دراسي منظم حقيقي متكامل يتضمن تقسيم الفترات، أوقات الراحة، والمواضيع بالتفصيل. 
+
+هل ترغب في **تأكيد وحفظ** هذا الجدول ليحل كجدول نشط وتتمكن من تتبعه وإنجازه فوراً؟`;
 
     setMessages(prev => [...prev, {
       id: `emergency-result-${Date.now()}`,
@@ -576,19 +714,30 @@ export const SmartAssistant: React.FC<SmartAssistantProps> = ({
               }`}>
                 <div className="whitespace-pre-line">{msg.text}</div>
 
-                {/* Optional Custom Form rendering for Step 2 Date Picker */}
-                {msg.type === 'emergency_form' && emergencyStep === 2 && (
+                {/* Optional Custom Form rendering for Step 5 & 6 Date Pickers */}
+                {msg.type === 'emergency_form' && (emergencyStep === 5 || emergencyStep === 6) && (
                   <div className="mt-4 p-3 bg-slate-50 border border-gray-100 rounded-xl space-y-3">
-                    <label className="block text-[10px] font-black text-[#3E176D]">تاريخ الامتحان المستهدف</label>
+                    <label className="block text-[10px] font-black text-[#3E176D]">
+                      {emergencyStep === 5 ? 'تاريخ بدء خطة الطوارئ' : 'تاريخ نهاية الخطة (الامتحان)'}
+                    </label>
                     <input
                       type="date"
-                      value={emergencyData.examDate}
-                      onChange={(e) => setEmergencyData({ ...emergencyData, examDate: e.target.value })}
+                      value={emergencyStep === 5 ? emergencyData.startDate : emergencyData.examDate}
+                      onChange={(e) => {
+                        if (emergencyStep === 5) {
+                          setEmergencyData({ ...emergencyData, startDate: e.target.value });
+                        } else {
+                          setEmergencyData({ ...emergencyData, examDate: e.target.value });
+                        }
+                      }}
                       className="w-full p-2 border border-gray-200 rounded-xl text-xs bg-white text-[#1D2433] font-semibold"
                     />
                     <button
                       type="button"
-                      onClick={() => handleEmergencyStepAnswer(emergencyData.examDate, `تاريخ الامتحان هو ${emergencyData.examDate}`)}
+                      onClick={() => {
+                        const val = emergencyStep === 5 ? emergencyData.startDate : emergencyData.examDate;
+                        handleEmergencyStepAnswer(val, emergencyStep === 5 ? `البداية في ${emergencyData.startDate}` : `الامتحان في ${emergencyData.examDate}`);
+                      }}
                       className="w-full py-2 bg-[#5B2596] hover:opacity-95 text-white rounded-xl text-xs font-bold transition-all"
                     >
                       تأكيد التاريخ والمتابعة

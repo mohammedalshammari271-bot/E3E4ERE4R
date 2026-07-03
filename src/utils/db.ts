@@ -52,11 +52,11 @@ export const saveActiveScheduleId = (id: string) => {
 
 // --- NEW PERSISTENCE HELPERS FOR TEACHER MODE & CURRICULUM TREE ---
 
-export const getUserRole = (): 'student' | 'teacher' => {
-  return (localStorage.getItem(USER_ROLE_KEY) as 'student' | 'teacher') || 'student';
+export const getUserRole = (): 'student' | 'teacher' | 'exam_organizer' => {
+  return (localStorage.getItem(USER_ROLE_KEY) as 'student' | 'teacher' | 'exam_organizer') || 'student';
 };
 
-export const saveUserRole = (role: 'student' | 'teacher') => {
+export const saveUserRole = (role: 'student' | 'teacher' | 'exam_organizer') => {
   localStorage.setItem(USER_ROLE_KEY, role);
 };
 

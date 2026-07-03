@@ -1,756 +1,1162 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, Calendar, Clock, MapPin, Link2, Plus, Edit2, Trash2, Copy, 
-  Printer, CheckCircle, AlertTriangle, AlertCircle, FileText, ChevronLeft, ChevronRight, BookOpen
+  Users, Calendar, Clock, MapPin, Plus, Edit2, Trash2, Copy, 
+  Printer, CheckCircle, AlertTriangle, AlertCircle, FileText, 
+  Search, Settings, Shield, UserCheck, ShieldAlert, Sparkles, Download
 } from 'lucide-react';
-import { TeacherLesson, TeacherSchedule, THEME_COLORS, IRAQI_DAYS } from '../types';
-import { 
-  getTeacherLessons, saveTeacherLessons, getTeacherSchedules, 
-  saveTeacherSchedules, getActiveTeacherScheduleId, saveActiveTeacherScheduleId 
-} from '../utils/db';
+import { IRAQI_DAYS } from '../types';
+
+// Structured types for the School Schedule
+export interface SchoolLesson {
+  id: string;
+  day: string;          // Day of week
+  periodIndex: number;  // 0 to 5 (6 periods)
+  gradeClass: string;   // e.g. "السادس العلمي"
+  division: string;     // e.g. "أ", "ب", "ج"
+  subject: string;      // Subject name
+  teacher: string;      // Teacher name
+  room: string;         // Classroom name
+  type: 'study' | 'review' | 'solve' | 'exam' | 'rest';
+  notes?: string;
+}
+
+export interface SchoolProfile {
+  schoolName: string;
+  principalName: string;
+  assistantName: string;
+  teachers: string[];
+  rooms: string[];
+  grades: string[];
+  divisions: string[];
+}
+
+const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
+  schoolName: 'إعدادية المتميزين للبنين',
+  principalName: 'أ. د. محمد الحسني',
+  assistantName: 'أ. علاء الدين الجبوري',
+  teachers: ['أ. أحمد الراوي (رياضيات)', 'أ. عمر الخفاجي (فيزياء)', 'أ. زينب الدليمي (كيمياء)', 'أ. ساجدة العبيدي (عربي)', 'أ. رائد العزاوي (إنجليزي)', 'أ. علي التميمي (أحياء)'],
+  rooms: ['مختبر الفيزياء', 'قاعة المتميزين (١)', 'قاعة النوابغ (٢)', 'مختبر الكيمياء', 'القاعة الكبرى'],
+  grades: ['السادس العلمي', 'السادس الأدبي', 'الثالث المتوسط', 'الرابع العلمي', 'الخامس الأحيائي'],
+  divisions: ['أ', 'ب', 'ج', 'د'],
+};
+
+const DEFAULT_SCHOOL_LESSONS: SchoolLesson[] = [
+  {
+    id: 's-les-1',
+    day: 'الأحد',
+    periodIndex: 0,
+    gradeClass: 'السادس العلمي',
+    division: 'أ',
+    subject: 'الرياضيات',
+    teacher: 'أ. أحمد الراوي (رياضيات)',
+    room: 'قاعة المتميزين (١)',
+    type: 'study',
+    notes: 'الفصل الأول - الأعداد المركبة ديموافر'
+  },
+  {
+    id: 's-les-2',
+    day: 'الأحد',
+    periodIndex: 1,
+    gradeClass: 'السادس العلمي',
+    division: 'أ',
+    subject: 'الفيزياء',
+    teacher: 'أ. عمر الخفاجي (فيزياء)',
+    room: 'مختبر الفيزياء',
+    type: 'study',
+    notes: 'قوانين ربط المتسعات على التوالي'
+  },
+  {
+    id: 's-les-3',
+    day: 'الاثنين',
+    periodIndex: 1,
+    gradeClass: 'الثالث المتوسط',
+    division: 'ب',
+    subject: 'اللغة العربية',
+    teacher: 'أ. ساجدة العبيدي (عربي)',
+    room: 'قاعة النوابغ (٢)',
+    type: 'review',
+    notes: 'قواعد اسم الفاعل وعمله'
+  },
+  {
+    id: 's-les-4',
+    day: 'الثلاثاء',
+    periodIndex: 3,
+    gradeClass: 'السادس العلمي',
+    division: 'ب',
+    subject: 'الكيمياء',
+    teacher: 'أ. زينب الدليمي (كيمياء)',
+    room: 'مختبر الكيمياء',
+    type: 'solve',
+    notes: 'حل مسائل فرداي والتحليل الكهربائي'
+  },
+  {
+    id: 's-les-5',
+    day: 'الخميس',
+    periodIndex: 4,
+    gradeClass: 'السادس الأدبي',
+    division: 'أ',
+    subject: 'التاريخ',
+    teacher: 'أ. ساجدة العبيدي (عربي)',
+    room: 'القاعة الكبرى',
+    type: 'exam',
+    notes: 'امتحان شهري في الفصل الأول والثاني'
+  }
+];
+
+// Defined 6 Iraqi school periods with realistic times
+export const SCHOOL_PERIODS = [
+  { name: 'الحصة الأولى', start: '08:00', end: '08:45' },
+  { name: 'الحصة الثانية', start: '08:50', end: '09:35' },
+  { name: 'الحصة الثالثة', start: '09:40', end: '10:25' },
+  { name: 'الحصة الرابعة', start: '10:45', end: '11:30' },
+  { name: 'الحصة الخامسة', start: '11:35', end: '12:20' },
+  { name: 'الحصة السادسة', start: '12:25', end: '13:10' }
+];
 
 export const TeacherMode: React.FC = () => {
-  const [schedules, setSchedules] = useState<TeacherSchedule[]>([]);
-  const [activeScheduleId, setActiveScheduleId] = useState<string>('');
-  const [lessons, setLessons] = useState<TeacherLesson[]>([]);
+  // Roles inside Teaching Staff
+  const [activeRole, setActiveRole] = useState<'principal' | 'assistant' | 'teacher'>('principal');
   
-  // UI States
-  const [isAddingLesson, setIsAddingLesson] = useState(false);
+  // School Data & Profile
+  const [profile, setProfile] = useState<SchoolProfile>(DEFAULT_SCHOOL_PROFILE);
+  const [lessons, setLessons] = useState<SchoolLesson[]>([]);
+  
+  // Filters
+  const [filterGrade, setFilterGrade] = useState<string>('all');
+  const [filterTeacher, setFilterTeacher] = useState<string>('all');
+  const [filterRoom, setFilterRoom] = useState<string>('all');
+
+  // Modal / Form state for Add/Edit
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  
+  // Form Values
+  const [formDay, setFormDay] = useState<string>('الأحد');
+  const [formPeriod, setFormPeriod] = useState<number>(0);
+  const [formGrade, setFormGrade] = useState<string>('السادس العلمي');
+  const [formDivision, setFormDivision] = useState<string>('أ');
+  const [formSubject, setFormSubject] = useState<string>('');
+  const [formTeacher, setFormTeacher] = useState<string>('');
+  const [formRoom, setFormRoom] = useState<string>('');
+  const [formType, setFormType] = useState<SchoolLesson['type']>('study');
+  const [formNotes, setFormNotes] = useState<string>('');
 
-  // Form Fields
-  const [subject, setSubject] = useState('');
-  const [gradeClass, setGradeClass] = useState('السادس العلمي');
-  const [studentGroup, setStudentGroup] = useState('');
-  const [lessonTitle, setLessonTitle] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [day, setDay] = useState('السبت');
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('10:30');
-  const [locationType, setLocationType] = useState<'physical' | 'online'>('physical');
-  const [meetLink, setMeetLink] = useState('');
-  const [notes, setNotes] = useState('');
-  const [recurrence, setRecurrence] = useState<'once' | 'weekly'>('once');
+  // Conflict alert dialog / toast state
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // Load Initial Configurations
+  // Drag and drop states
+  const [draggingLesson, setDraggingLesson] = useState<SchoolLesson | null>(null);
+
+  // Load from LocalStorage
   useEffect(() => {
-    const savedSchedules = getTeacherSchedules();
-    const activeId = getActiveTeacherScheduleId();
-    const savedLessons = getTeacherLessons();
+    const savedProfile = localStorage.getItem('school_profile');
+    const savedLessons = localStorage.getItem('school_lessons');
+    const savedRole = localStorage.getItem('school_active_role');
 
-    setLessons(savedLessons);
-
-    if (savedSchedules.length > 0) {
-      setSchedules(savedSchedules);
-      const validId = savedSchedules.some(s => s.id === activeId) ? activeId : savedSchedules[0].id;
-      setActiveScheduleId(validId);
+    if (savedProfile) setProfile(JSON.parse(savedProfile));
+    if (savedLessons) {
+      setLessons(JSON.parse(savedLessons));
     } else {
-      // Create first default teacher schedule
-      const defaultSch: TeacherSchedule = {
-        id: `teacher-sch-${Date.now()}`,
-        name: 'جدول المحاضرات العام للمدرس',
-        createdAt: new Date().toISOString().split('T')[0],
-        lastModified: new Date().toISOString().split('T')[0]
-      };
-      setSchedules([defaultSch]);
-      setActiveScheduleId(defaultSch.id);
-      saveTeacherSchedules([defaultSch]);
-      saveActiveTeacherScheduleId(defaultSch.id);
+      setLessons(DEFAULT_SCHOOL_LESSONS);
+      localStorage.setItem('school_lessons', JSON.stringify(DEFAULT_SCHOOL_LESSONS));
     }
+    if (savedRole) setActiveRole(savedRole as any);
   }, []);
+
+  // Save to LocalStorage helpers
+  const saveLessons = (updated: SchoolLesson[]) => {
+    setLessons(updated);
+    localStorage.setItem('school_lessons', JSON.stringify(updated));
+  };
+
+  const saveProfile = (updated: SchoolProfile) => {
+    setProfile(updated);
+    localStorage.setItem('school_profile', JSON.stringify(updated));
+  };
+
+  const handleRoleChange = (role: 'principal' | 'assistant' | 'teacher') => {
+    setActiveRole(role);
+    localStorage.setItem('school_active_role', role);
+    showToast(`تم التغيير إلى وضع ${role === 'principal' ? 'المدير' : role === 'assistant' ? 'المعاون' : 'المدرس'} ورصد صلاحياته المعتمدة.`);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  // 1. ADD NEW TEACHER SCHEDULE
-  const handleCreateSchedule = () => {
-    const name = window.prompt('أدخل اسم جدول المدرس الجديد:', 'جدول الدورات والخصوصي الجديد');
-    if (!name || !name.trim()) return;
-
-    const newSch: TeacherSchedule = {
-      id: `teacher-sch-${Date.now()}`,
-      name: name.trim(),
-      createdAt: new Date().toISOString().split('T')[0],
-      lastModified: new Date().toISOString().split('T')[0]
-    };
-
-    const updated = [...schedules, newSch];
-    setSchedules(updated);
-    setActiveScheduleId(newSch.id);
-    saveTeacherSchedules(updated);
-    saveActiveTeacherScheduleId(newSch.id);
-    showToast('تم إنشاء جدول مدرس جديد بنجاح');
-  };
-
-  // 2. CONFLICT / DOUBLE BOOKING DETECTION
-  const checkConflict = (
-    targetDay: string, 
-    targetDate: string, 
-    startT: string, 
-    endT: string, 
+  // Conflict Detection Engine
+  const detectConflict = (
+    day: string,
+    periodIndex: number,
+    grade: string,
+    division: string,
+    teacher: string,
+    room: string,
     excludeId?: string
-  ): TeacherLesson | null => {
-    // Parse times into minutes of day
-    const parseMins = (timeStr: string) => {
-      const [h, m] = timeStr.split(':').map(Number);
-      return h * 60 + m;
-    };
-
-    const newStart = parseMins(startT);
-    const newEnd = parseMins(endT);
-
+  ): { type: string; details: string } | null => {
     for (const les of lessons) {
       if (les.id === excludeId) continue;
-      if (les.scheduleId !== activeScheduleId) continue;
-
-      // Check if day matches OR specific single-date matches
-      const isSameDay = les.day === targetDay;
-      const isSameDate = les.date === targetDate && les.recurrence === 'once';
-
-      if (isSameDay || isSameDate) {
-        const extStart = parseMins(les.startTime);
-        const extEnd = parseMins(les.endTime);
-
-        // Check range overlap: (StartA < EndB) and (EndA > StartB)
-        if (newStart < extEnd && newEnd > extStart) {
-          return les; // Conflict found!
+      if (les.day === day && les.periodIndex === periodIndex) {
+        // 1. Class double-booking
+        if (les.gradeClass === grade && les.division === division) {
+          return {
+            type: 'class',
+            details: `الصف والصف الثاني تعارض: (${les.gradeClass} - شعبة ${les.division}) لديه بالفعل درس "${les.subject}" مع ${les.teacher} في هذا الوقت!`
+          };
+        }
+        // 2. Teacher double-booking
+        if (teacher && les.teacher === teacher) {
+          return {
+            type: 'teacher',
+            details: `المدرس مشغول: ${les.teacher} لديه درس آخر مع (${les.gradeClass} - شعبة ${les.division}) في هذا الوقت!`
+          };
+        }
+        // 3. Room double-booking
+        if (room && les.room === room) {
+          return {
+            type: 'room',
+            details: `القاعة مشغولة: (${les.room}) محجوزة حالياً لدرس "${les.subject}" للصف ${les.gradeClass}!`
+          };
         }
       }
     }
     return null;
   };
 
-  // 3. SUBMIT FORM (ADD / EDIT)
-  const handleSubmitLesson = (e: React.FormEvent) => {
+  // Form Submit Handler
+  const handleSaveLesson = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
-
-    if (!subject.trim() || !studentGroup.trim()) {
-      setErrorMessage('يرجى ملء كافة الحقول الإلزامية.');
+    if (!formSubject.trim()) {
+      alert('يرجى كتابة اسم المادة الدراسية');
       return;
     }
 
-    // Auto calculate duration
-    const [sh, sm] = startTime.split(':').map(Number);
-    const [eh, em] = endTime.split(':').map(Number);
-    const duration = (eh * 60 + em) - (sh * 60 + sm);
+    // Run Conflict Detection
+    const conflict = detectConflict(
+      formDay,
+      formPeriod,
+      formGrade,
+      formDivision,
+      formTeacher,
+      formRoom,
+      editingLessonId || undefined
+    );
 
-    if (duration <= 0) {
-      setErrorMessage('خطأ: وقت نهاية الحصة لا يمكن أن يكون قبل وقت البدء.');
-      return;
-    }
-
-    // Double booking detection
-    const conflict = checkConflict(day, date, startTime, endTime, editingLessonId || undefined);
     if (conflict) {
-      setErrorMessage(`⚠️ تعارض بالموعد: المدرس محجوز بالفعل في هذا التوقيت لـ "${conflict.studentGroup}" (${conflict.subject}) من الساعة ${conflict.startTime} إلى ${conflict.endTime}. يرجى تغيير التوقيت لتفادي التداخل.`);
+      setConflictWarning(conflict.details);
+      // For principal, warn but allow proceeding optionally, or lock based on user guidelines. 
+      // Let's enforce strict conflict prevention as requested by the user, and show an warning modal!
       return;
     }
 
-    let updatedLessons = [...lessons];
-
+    let updatedList = [...lessons];
     if (editingLessonId) {
-      // Edit mode
-      updatedLessons = lessons.map(l => {
+      // Edit
+      updatedList = lessons.map(l => {
         if (l.id === editingLessonId) {
           return {
             ...l,
-            subject: subject.trim(),
-            gradeClass,
-            studentGroup: studentGroup.trim(),
-            lessonTitle: lessonTitle.trim(),
-            date,
-            day,
-            startTime,
-            endTime,
-            duration,
-            locationType,
-            meetLink: locationType === 'online' ? meetLink.trim() : '',
-            notes: notes.trim(),
-            recurrence
+            day: formDay,
+            periodIndex: formPeriod,
+            gradeClass: formGrade,
+            division: formDivision,
+            subject: formSubject.trim(),
+            teacher: formTeacher,
+            room: formRoom,
+            type: formType,
+            notes: formNotes.trim()
           };
         }
         return l;
       });
-      showToast('تم تحديث بيانات المحاضرة بنجاح!');
+      showToast('تم تحديث الحصة بنجاح دون أي تعارضات!');
     } else {
-      // Add mode
-      const newLesson: TeacherLesson = {
-        id: `teacher-less-${Date.now()}`,
-        scheduleId: activeScheduleId,
-        subject: subject.trim(),
-        gradeClass,
-        studentGroup: studentGroup.trim(),
-        lessonTitle: lessonTitle.trim(),
-        date,
-        day,
-        startTime,
-        endTime,
-        duration,
-        locationType,
-        meetLink: locationType === 'online' ? meetLink.trim() : '',
-        notes: notes.trim(),
-        recurrence
+      // New
+      const newLes: SchoolLesson = {
+        id: `s-les-${Date.now()}`,
+        day: formDay,
+        periodIndex: formPeriod,
+        gradeClass: formGrade,
+        division: formDivision,
+        subject: formSubject.trim(),
+        teacher: formTeacher,
+        room: formRoom,
+        type: formType,
+        notes: formNotes.trim()
       };
-      updatedLessons.push(newLesson);
-      showToast('تم حجز وجدولة المحاضرة بنجاح دون أي تعارضات!');
+      updatedList.push(newLes);
+      showToast('تمت جدولة وحجز الحصة المدرسية بنجاح!');
     }
 
-    setLessons(updatedLessons);
-    saveTeacherLessons(updatedLessons);
-    resetForm();
+    saveLessons(updatedList);
+    closeForm();
   };
 
-  const resetForm = () => {
-    setIsAddingLesson(false);
+  const openAddForm = (day: string, periodIndex: number) => {
+    if (activeRole === 'assistant') {
+      alert('⚠️ عذراً: لا يمتلك المعاون صلاحيات إضافة أو تعديل الحصص الدراسية (للمشاهدة والمراقبة فقط).');
+      return;
+    }
     setEditingLessonId(null);
-    setSubject('');
-    setStudentGroup('');
-    setLessonTitle('');
-    setDate(new Date().toISOString().split('T')[0]);
-    setDay('السبت');
-    setStartTime('09:00');
-    setEndTime('10:30');
-    setLocationType('physical');
-    setMeetLink('');
-    setNotes('');
-    setRecurrence('once');
-    setErrorMessage('');
+    setFormDay(day);
+    setFormPeriod(periodIndex);
+    setFormGrade(profile.grades[0] || 'السادس العلمي');
+    setFormDivision(profile.divisions[0] || 'أ');
+    setFormSubject('');
+    setFormTeacher(profile.teachers[0] || '');
+    setFormRoom(profile.rooms[0] || '');
+    setFormType('study');
+    setFormNotes('');
+    setConflictWarning(null);
+    setIsFormOpen(true);
   };
 
-  // 4. START EDIT LESSON
-  const handleStartEdit = (les: TeacherLesson) => {
+  const openEditForm = (les: SchoolLesson) => {
+    if (activeRole === 'assistant') {
+      alert('⚠️ عذراً: لا يمتلك المعاون صلاحيات إضافة أو تعديل الحصص الدراسية.');
+      return;
+    }
+    if (activeRole === 'teacher' && les.teacher !== formTeacher && les.teacher !== '') {
+      // Check if trying to edit other teacher's lesson
+      alert('⚠️ عذراً: كمدرس، تستطيع فقط تعديل أو إلغاء حصصك الخاصة بك وتفادي تعديل جدول زملائك.');
+      return;
+    }
     setEditingLessonId(les.id);
-    setSubject(les.subject);
-    setGradeClass(les.gradeClass);
-    setStudentGroup(les.studentGroup);
-    setLessonTitle(les.lessonTitle);
-    setDate(les.date);
-    setDay(les.day);
-    setStartTime(les.startTime);
-    setEndTime(les.endTime);
-    setLocationType(les.locationType);
-    setMeetLink(les.meetLink || '');
-    setNotes(les.notes || '');
-    setRecurrence(les.recurrence);
-    setIsAddingLesson(true);
+    setFormDay(les.day);
+    setFormPeriod(les.periodIndex);
+    setFormGrade(les.gradeClass);
+    setFormDivision(les.division);
+    setFormSubject(les.subject);
+    setFormTeacher(les.teacher);
+    setFormRoom(les.room);
+    setFormType(les.type);
+    setFormNotes(les.notes || '');
+    setConflictWarning(null);
+    setIsFormOpen(true);
   };
 
-  // 5. DELETE LESSON
-  const handleDeleteLesson = (id: string) => {
-    if (!window.confirm('هل أنت متأكد من إلغاء وحذف موعد هذه المحاضرة نهائياً؟')) return;
-    const updated = lessons.filter(l => l.id !== id);
-    setLessons(updated);
-    saveTeacherLessons(updated);
-    showToast('تم إلغاء المحاضرة بنجاح');
+  const handleDeleteLesson = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeRole === 'assistant') {
+      alert('⚠️ عذراً: لا يمتلك المعاون صلاحيات الحذف.');
+      return;
+    }
+    const targetLes = lessons.find(l => l.id === id);
+    if (activeRole === 'teacher' && targetLes && targetLes.teacher !== formTeacher && targetLes.teacher !== '') {
+      alert('⚠️ عذراً: كمدرس، يمكنك فقط إلغاء وحذف حصصك الدراسية الخاصة.');
+      return;
+    }
+    if (!window.confirm('هل أنت متأكد من إلغاء وحذف هذه الحصة المدرسية من الجدول نهائياً؟')) return;
+    const filtered = lessons.filter(l => l.id !== id);
+    saveLessons(filtered);
+    showToast('تم حذف الحصة الدراسية بنجاح.');
   };
 
-  // 6. COPY LESSON TO ANOTHER DAY
-  const handleDuplicateLesson = (les: TeacherLesson) => {
-    const nextDay = IRAQI_DAYS[(IRAQI_DAYS.indexOf(les.day) + 1) % IRAQI_DAYS.length];
-    
-    // Auto calculate tomorrow's date
-    const d = new Date(les.date);
-    d.setDate(d.getDate() + 1);
-    const nextDateStr = d.toISOString().split('T')[0];
+  const handleDuplicateLesson = (les: SchoolLesson, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeRole === 'assistant') {
+      alert('⚠️ عذراً: لا يمتلك المعاون صلاحيات التكرار.');
+      return;
+    }
+    const nextDayIdx = (IRAQI_DAYS.indexOf(les.day) + 1) % IRAQI_DAYS.length;
+    const nextDay = IRAQI_DAYS[nextDayIdx];
 
-    const duplicated: TeacherLesson = {
-      ...les,
-      id: `teacher-less-dup-${Date.now()}`,
-      day: nextDay,
-      date: nextDateStr,
-      lessonTitle: `${les.lessonTitle} (نسخة مكررة)`
-    };
+    // check conflict
+    const conflict = detectConflict(
+      nextDay,
+      les.periodIndex,
+      les.gradeClass,
+      les.division,
+      les.teacher,
+      les.room
+    );
 
-    // check if conflict
-    const conflict = checkConflict(nextDay, nextDateStr, les.startTime, les.endTime);
     if (conflict) {
-      alert(`⚠️ تعارض مكرر: لا يمكن النسخ لليوم التالي لتعارض الوقت مع درس آخر!`);
+      alert(`⚠️ تعارض: لا يمكن نسخ الحصة ليوم ${nextDay} بسبب: ${conflict.details}`);
       return;
     }
 
+    const duplicated: SchoolLesson = {
+      ...les,
+      id: `s-les-dup-${Date.now()}`,
+      day: nextDay,
+    };
     const updated = [...lessons, duplicated];
-    setLessons(updated);
-    saveTeacherLessons(updated);
-    showToast(`تم نسخ وتكرار الدرس بنجاح إلى يوم ${nextDay}!`);
+    saveLessons(updated);
+    showToast(`تم نسخ الحصة بنجاح ومضاعفتها إلى يوم ${nextDay}!`);
   };
 
-  // 7. PRINT TEACHER SCHEDULE
-  const handlePrintTeacher = () => {
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingLessonId(null);
+    setConflictWarning(null);
+  };
+
+  // Drag and Drop Implementation
+  const handleDragStart = (e: React.DragEvent, les: SchoolLesson) => {
+    if (activeRole === 'assistant') {
+      e.preventDefault();
+      return;
+    }
+    if (activeRole === 'teacher' && les.teacher !== formTeacher && les.teacher !== '') {
+      e.preventDefault();
+      alert('⚠️ عذراً: تستطيع فقط سحب وإعادة جدولة حصصك الخاصة.');
+      return;
+    }
+    setDraggingLesson(les);
+    e.dataTransfer.setData('text/plain', les.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Required to allow drop
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDay: string, targetPeriod: number) => {
+    e.preventDefault();
+    if (!draggingLesson) return;
+
+    if (draggingLesson.day === targetDay && draggingLesson.periodIndex === targetPeriod) {
+      setDraggingLesson(null);
+      return;
+    }
+
+    // Detect Conflict for the destination
+    const conflict = detectConflict(
+      targetDay,
+      targetPeriod,
+      draggingLesson.gradeClass,
+      draggingLesson.division,
+      draggingLesson.teacher,
+      draggingLesson.room,
+      draggingLesson.id
+    );
+
+    if (conflict) {
+      alert(`⚠️ لا يمكن نقل الحصة بسبب تعارض بالجدول:\n\n${conflict.details}`);
+      setDraggingLesson(null);
+      return;
+    }
+
+    // Move lesson
+    const updated = lessons.map(l => {
+      if (l.id === draggingLesson.id) {
+        return {
+          ...l,
+          day: targetDay,
+          periodIndex: targetPeriod
+        };
+      }
+      return l;
+    });
+
+    saveLessons(updated);
+    showToast(`تم سحب ونقل الحصة بنجاح إلى يوم ${targetDay} - الحصة ${targetPeriod + 1}.`);
+    setDraggingLesson(null);
+  };
+
+  const handlePrint = () => {
     window.print();
   };
 
-  const activeScheduleObj = schedules.find(s => s.id === activeScheduleId);
-  const activeLessons = lessons.filter(l => l.scheduleId === activeScheduleId);
+  // Settings / Metadata Editing for Principal
+  const handleUpdateProfileField = (field: keyof SchoolProfile, value: any) => {
+    const updated = { ...profile, [field]: value };
+    saveProfile(updated);
+    showToast('تم تحديث إعدادات الكادر التدريسي والمدرسة بنجاح!');
+  };
+
+  const handleAddSettingItem = (field: 'teachers' | 'rooms' | 'grades', placeholder: string) => {
+    const item = window.prompt(`أدخل ${placeholder} الجديد لإضافته للمدرسة:`);
+    if (!item || !item.trim()) return;
+    const current = [...profile[field]];
+    if (current.includes(item.trim())) {
+      alert('هذا العنصر مضاف بالفعل!');
+      return;
+    }
+    handleUpdateProfileField(field, [...current, item.trim()]);
+  };
+
+  const handleDeleteSettingItem = (field: 'teachers' | 'rooms' | 'grades', item: string) => {
+    if (!window.confirm(`هل أنت متأكد من إزالة "${item}" نهائياً من قائمة المدرسة؟`)) return;
+    const updated = profile[field].filter(x => x !== item);
+    handleUpdateProfileField(field, updated);
+  };
+
+  // Filter lessons based on selection
+  const filteredLessons = lessons.filter(les => {
+    if (filterGrade !== 'all' && les.gradeClass !== filterGrade) return false;
+    if (filterTeacher !== 'all' && les.teacher !== filterTeacher) return false;
+    if (filterRoom !== 'all' && les.room !== filterRoom) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
       
-      {/* HEADER SECTION FOR TEACHER MODE */}
-      <div className="no-print bg-white rounded-3xl border border-[#D9D3F0] p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-black text-[#3E176D] flex items-center gap-2">
-            <Users className="w-6 h-6 text-[#5B2596]" />
-            وضع المدرس — # جدول المدرس
-          </h2>
-          <p className="text-xs text-[#687084]">
-            منصة تتبع وحجز دورات ومحاضرات الخصوصي للطلاب العراقيين مع كاشف التداخل والتعارض الآلي.
-          </p>
+      {/* ROLE SWITCHER TOP BAR */}
+      <div className="no-print bg-white rounded-3xl border border-[#D9D3F0] p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-[#F5F3FF] rounded-2xl border border-[#D9D3F0]">
+            <Shield className="w-6 h-6 text-[#5B2596]" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-[#3E176D]">بوابة الكادر التدريسي والإداري</h2>
+            <p className="text-xs text-[#687084]">إدارة ومتابعة جدول الحصص الرسمي وتنسيق القاعات ومنع التداخلات</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {/* Active schedule selector */}
-          <select
-            value={activeScheduleId}
-            onChange={(e) => {
-              setActiveScheduleId(e.target.value);
-              saveActiveTeacherScheduleId(e.target.value);
-            }}
-            className="flex-1 sm:flex-initial px-3 py-2 rounded-xl border border-[#D9D3F0] text-xs font-bold text-[#3E176D] bg-white outline-none cursor-pointer"
-          >
-            {schedules.map(sch => (
-              <option key={sch.id} value={sch.id}>{sch.name}</option>
-            ))}
-          </select>
-
+        <div className="flex bg-[#F5F3FF] p-1 rounded-2xl border border-[#D9D3F0] gap-1 w-full md:w-auto">
           <button
-            onClick={handleCreateSchedule}
-            className="px-3.5 py-2 bg-[#E9E6FA] text-[#3E176D] text-xs font-bold rounded-xl hover:bg-[#D9D3F0] transition-colors shrink-0"
+            onClick={() => handleRoleChange('principal')}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              activeRole === 'principal' 
+                ? 'bg-[#5B2596] text-white shadow-sm' 
+                : 'text-[#687084] hover:bg-[#E9E6FA]/40 hover:text-[#3E176D]'
+            }`}
           >
-            جدول جديد
+            <span>المدير 👑</span>
+          </button>
+          <button
+            onClick={() => handleRoleChange('assistant')}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              activeRole === 'assistant' 
+                ? 'bg-[#5B2596] text-white shadow-sm' 
+                : 'text-[#687084] hover:bg-[#E9E6FA]/40 hover:text-[#3E176D]'
+            }`}
+          >
+            <span>المعاون 📋</span>
+          </button>
+          <button
+            onClick={() => handleRoleChange('teacher')}
+            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              activeRole === 'teacher' 
+                ? 'bg-[#5B2596] text-white shadow-sm' 
+                : 'text-[#687084] hover:bg-[#E9E6FA]/40 hover:text-[#3E176D]'
+            }`}
+          >
+            <span>المدرس 👨‍🏫</span>
           </button>
         </div>
       </div>
 
-      {/* ERROR / TOAST NOTIFICATION */}
+      {/* SYSTEM ROLE DESCRIPTION STATUS */}
+      <div className="no-print bg-gradient-to-r from-[#F5F3FF] to-white rounded-2xl border border-[#D9D3F0] p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {activeRole === 'principal' ? (
+            <span className="flex items-center gap-1.5 bg-indigo-50 text-[#3E176D] text-xs font-black px-3 py-1.5 rounded-xl border border-indigo-200">
+              <UserCheck className="w-4 h-4 text-[#5B2596]" />
+              صلاحية كاملة (مدير النظام)
+            </span>
+          ) : activeRole === 'assistant' ? (
+            <span className="flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-black px-3 py-1.5 rounded-xl border border-amber-200">
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              متابعة ومراقبة الشعب (معاون الإدارة)
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 text-xs font-black px-3 py-1.5 rounded-xl border border-emerald-200">
+              <Users className="w-4 h-4 text-emerald-600" />
+              تعديل الجدول الشخصي وحجز الحصص (المدرس)
+            </span>
+          )}
+          <span className="text-xs text-[#687084] font-semibold">
+            {activeRole === 'principal' 
+              ? 'تتمتع بحرية كاملة في تعيين الحصص وتعديل إعدادات المدرسة والغرف والصفوف والمدرسين.' 
+              : activeRole === 'assistant' 
+              ? 'تستطيع متابعة وتصفية كافة الحصص والصفوف والشعب دون تعديل الجدول تفادياً للتداخلات.' 
+              : 'يرجى اختيار اسمك لتصفية وعرض حصصك الخاصة وجدولتها دون تداخل مع غرف أو زملاء آخرين.'}
+          </span>
+        </div>
+
+        {activeRole === 'principal' && (
+          <button
+            onClick={() => setIsConfigOpen(!isConfigOpen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#F5F3FF] border border-[#D9D3F0] rounded-xl text-xs font-bold text-[#3E176D] transition-all"
+          >
+            <Settings className="w-4 h-4" />
+            تعديل بيانات الكادر والمدرسة
+          </button>
+        )}
+      </div>
+
+      {/* METADATA CONFIGURATION PANEL FOR PRINCIPAL */}
+      {activeRole === 'principal' && isConfigOpen && (
+        <div className="no-print bg-white rounded-3xl border border-[#D9D3F0] p-6 shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 className="text-sm font-black text-[#3E176D] flex items-center gap-2">
+              <Settings className="w-4 h-4 text-[#5B2596]" />
+              لوحة التحكم بمدخلات الكادر وبيانات المدرسة
+            </h3>
+            <button 
+              onClick={() => setIsConfigOpen(false)}
+              className="text-xs text-rose-600 font-bold hover:underline"
+            >
+              إغلاق اللوحة ×
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+            {/* School Info */}
+            <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-gray-100">
+              <h4 className="font-bold text-[#3E176D] border-b border-gray-200/60 pb-1.5">معلومات المدرسة الأساسية</h4>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-[#687084] mb-1 font-semibold">اسم المدرسة الرسمي</label>
+                  <input
+                    type="text"
+                    value={profile.schoolName}
+                    onChange={(e) => handleUpdateProfileField('schoolName', e.target.value)}
+                    className="w-full p-2 border border-gray-200 rounded-xl font-bold bg-white text-[#1D2433]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#687084] mb-1 font-semibold">اسم المدير الثلاثي</label>
+                  <input
+                    type="text"
+                    value={profile.principalName}
+                    onChange={(e) => handleUpdateProfileField('principalName', e.target.value)}
+                    className="w-full p-2 border border-gray-200 rounded-xl bg-white text-[#1D2433]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#687084] mb-1 font-semibold">اسم المعاون المسؤول</label>
+                  <input
+                    type="text"
+                    value={profile.assistantName}
+                    onChange={(e) => handleUpdateProfileField('assistantName', e.target.value)}
+                    className="w-full p-2 border border-gray-200 rounded-xl bg-white text-[#1D2433]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Teachers List */}
+            <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-gray-100">
+              <div className="flex justify-between items-center border-b border-gray-200/60 pb-1.5">
+                <h4 className="font-bold text-[#3E176D]">قائمة الهيئة التدريسية المعتمدة</h4>
+                <button
+                  type="button"
+                  onClick={() => handleAddSettingItem('teachers', 'المدرس')}
+                  className="text-[#5B2596] hover:underline font-bold text-[10px]"
+                >
+                  + إضافة مدرس
+                </button>
+              </div>
+              <div className="max-h-[140px] overflow-y-auto space-y-1 pr-1">
+                {profile.teachers.map(teacher => (
+                  <div key={teacher} className="flex justify-between items-center p-1.5 bg-white rounded-lg border border-gray-100">
+                    <span className="font-semibold text-gray-700">{teacher}</span>
+                    <button
+                      onClick={() => handleDeleteSettingItem('teachers', teacher)}
+                      className="text-rose-500 hover:text-rose-700 font-bold"
+                    >
+                      إزالة
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Rooms / Classrooms List */}
+            <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-gray-100">
+              <div className="flex justify-between items-center border-b border-gray-200/60 pb-1.5">
+                <h4 className="font-bold text-[#3E176D]">القاعات الدراسية والمختبرات</h4>
+                <button
+                  type="button"
+                  onClick={() => handleAddSettingItem('rooms', 'الموقع أو القاعة')}
+                  className="text-[#5B2596] hover:underline font-bold text-[10px]"
+                >
+                  + إضافة قاعة
+                </button>
+              </div>
+              <div className="max-h-[140px] overflow-y-auto space-y-1 pr-1">
+                {profile.rooms.map(room => (
+                  <div key={room} className="flex justify-between items-center p-1.5 bg-white rounded-lg border border-gray-100">
+                    <span className="font-semibold text-gray-700">{room}</span>
+                    <button
+                      onClick={() => handleDeleteSettingItem('rooms', room)}
+                      className="text-rose-500 hover:text-rose-700 font-bold"
+                    >
+                      إزالة
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FILTER & ACTIONS BAR */}
+      <div className="no-print bg-white rounded-3xl border border-[#D9D3F0] p-5 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          
+          {/* Quick Filters */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="flex items-center gap-1.5 bg-[#F5F3FF] px-2.5 py-1.5 rounded-xl border border-[#D9D3F0]">
+              <Search className="w-3.5 h-3.5 text-[#5B2596]" />
+              <span className="text-[10px] font-bold text-[#3E176D]">تصفية الجدول:</span>
+            </div>
+
+            {/* Grade Class Filter */}
+            <select
+              value={filterGrade}
+              onChange={(e) => setFilterGrade(e.target.value)}
+              className="p-1.5 text-xs border border-gray-200 rounded-xl bg-white text-[#1D2433] font-semibold"
+            >
+              <option value="all">كل المراحل والصفوف</option>
+              {profile.grades.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+
+            {/* Teacher Filter */}
+            <select
+              value={filterTeacher}
+              onChange={(e) => setFilterTeacher(e.target.value)}
+              className="p-1.5 text-xs border border-gray-200 rounded-xl bg-white text-[#1D2433] font-semibold"
+            >
+              <option value="all">كل المدرسين</option>
+              {profile.teachers.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+
+            {/* Room Filter */}
+            <select
+              value={filterRoom}
+              onChange={(e) => setFilterRoom(e.target.value)}
+              className="p-1.5 text-xs border border-gray-200 rounded-xl bg-white text-[#1D2433] font-semibold"
+            >
+              <option value="all">كل القاعات والمختبرات</option>
+              {profile.rooms.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Action triggers */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto lg:justify-end">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F3FF] hover:bg-[#E9E6FA] border border-[#D9D3F0] rounded-xl text-xs font-bold text-[#3E176D] transition-all"
+            >
+              <Printer className="w-4 h-4" />
+              طباعة الجدول والمعاينة
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('هل أنت متأكد من تفريغ كافة حصص جدول المدرسة وإعادة البدء بجدول فارغ؟')) {
+                  saveLessons([]);
+                  showToast('تم تفريغ وإلغاء كافة حصص جدول المدرسة بنجاح.');
+                }
+              }}
+              className="px-4 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 transition-all"
+            >
+              مسح وتفريغ الجدول ×
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 📅 INTERACTIVE SCHOOL SCHEDULE GRID */}
+      <div className="bg-white rounded-3xl border border-[#D9D3F0] overflow-hidden shadow-sm">
+        
+        {/* PRINT-FRIENDLY METADATA HEADER */}
+        <div className="p-6 border-b border-[#D9D3F0] bg-gradient-to-br from-white to-[#F5F3FF]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="bg-[#E9E6FA] text-[#3E176D] text-xs font-bold px-2.5 py-1 rounded-lg">
+                  جدول المدرسة الرسمي
+                </span>
+                <span className="text-xs text-[#687084] font-semibold flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-[#5B2596]" />
+                  دورة عام ٢٠٢٦-٢٠٢٧
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-[#3E176D]">
+                # جدول المدرسة — {profile.schoolName}
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 bg-white p-3 rounded-2xl border border-[#D9D3F0] text-xs">
+              <div>
+                <span className="text-[#687084] block mb-0.5 font-bold">المدير العام</span>
+                <span className="font-extrabold text-[#1D2433]">{profile.principalName}</span>
+              </div>
+              <div>
+                <span className="text-[#687084] block mb-0.5 font-bold">معاون الإدارة</span>
+                <span className="font-extrabold text-[#1D2433]">{profile.assistantName}</span>
+              </div>
+              <div>
+                <span className="text-[#687084] block mb-0.5 font-bold">الحصص النشطة</span>
+                <span className="font-extrabold text-[#1D2433]">{lessons.length} حصة دراسية</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* DRAG-AND-DROP INSTRUCTION */}
+        <div className="no-print bg-[#F5F3FF]/40 px-6 py-2 border-b border-[#D9D3F0] flex items-center gap-2 text-[11px] text-[#5B2596] font-bold">
+          <Sparkles className="w-4 h-4" />
+          <span>تفاعل ذكي: يمكنك سحب وإفلات أي حصة (Drag & Drop) لنقلها وتغيير يومها أو توقيتها بسهولة تامة مع منع التعارضات تلقائياً.</span>
+        </div>
+
+        {/* MAIN TABLE container */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[900px] text-right" style={{ direction: 'rtl' }}>
+            <thead>
+              <tr className="bg-[#F5F3FF] border-b border-[#D9D3F0]">
+                {/* Top-Right header cell */}
+                <th className="p-4 text-xs sm:text-sm font-black text-[#3E176D] w-[140px] text-center border-l border-[#D9D3F0]">
+                  أوقات الحصص / الأيام
+                </th>
+                {/* Days array starts Friday, ends Thursday */}
+                {IRAQI_DAYS.map((dayName) => (
+                  <th 
+                    key={dayName} 
+                    className="p-4 text-xs sm:text-sm font-black text-[#3E176D] text-center border-l border-[#D9D3F0] last:border-l-0"
+                  >
+                    {dayName}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {SCHOOL_PERIODS.map((period, periodIdx) => {
+                return (
+                  <tr 
+                    key={periodIdx} 
+                    className="border-b border-[#D9D3F0] last:border-b-0 hover:bg-[#F5F3FF]/10 transition-colors"
+                  >
+                    {/* Period Row Header with Time */}
+                    <td className="p-3 text-center bg-[#F5F3FF]/30 border-l border-[#D9D3F0] font-medium text-xs text-[#1D2433] w-[140px]">
+                      <div className="font-bold text-[#3E176D] mb-1">{period.name}</div>
+                      <div className="flex items-center justify-center gap-1 text-[#687084] font-mono font-bold text-[10px]">
+                        <Clock className="w-3.5 h-3.5 text-[#5B2596]" />
+                        <span>{period.start} - {period.end}</span>
+                      </div>
+                    </td>
+
+                    {/* Columns representing days */}
+                    {IRAQI_DAYS.map((dayName) => {
+                      // Find the lesson in this specific slot
+                      const cellLesson = filteredLessons.find(
+                        les => les.day === dayName && les.periodIndex === periodIdx
+                      );
+
+                      const hasLesson = !!cellLesson;
+
+                      return (
+                        <td 
+                          key={dayName} 
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, dayName, periodIdx)}
+                          onClick={() => !hasLesson && openAddForm(dayName, periodIdx)}
+                          className={`p-2 border-l border-[#D9D3F0] last:border-l-0 align-top h-[140px] w-[12.2%] transition-all ${
+                            !hasLesson ? 'cursor-pointer hover:bg-[#F5F3FF]/30' : ''
+                          }`}
+                        >
+                          {hasLesson ? (
+                            <div
+                              draggable={activeRole !== 'assistant'}
+                              onDragStart={(e) => handleDragStart(e, cellLesson)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditForm(cellLesson);
+                              }}
+                              className={`group relative h-full flex flex-col justify-between p-3 rounded-2xl border transition-all cursor-pointer shadow-sm hover:shadow-md ${
+                                cellLesson.type === 'exam' 
+                                  ? 'bg-rose-50 border-rose-200 text-rose-900' 
+                                  : cellLesson.type === 'review' 
+                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-900' 
+                                  : cellLesson.type === 'solve'
+                                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                  : 'bg-[#F9F8FF] border-[#E9E6FA] text-[#1D2433]'
+                              }`}
+                            >
+                              {/* Lesson Content details inside card */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-[10px] font-black bg-white/70 px-1.5 py-0.5 rounded border border-gray-100">
+                                    {cellLesson.gradeClass} - شعبة {cellLesson.division}
+                                  </span>
+                                  {cellLesson.type === 'exam' && (
+                                    <span className="text-[8px] font-bold px-1 py-0.5 bg-rose-500 text-white rounded">امتحان 🔥</span>
+                                  )}
+                                </div>
+                                
+                                <div className="font-extrabold text-xs sm:text-sm leading-snug truncate pt-1">
+                                  {cellLesson.subject}
+                                </div>
+                                
+                                <div className="text-[9px] text-[#687084] font-medium truncate">
+                                  👨‍🏫 {cellLesson.teacher || 'بدون مدرس'}
+                                </div>
+                              </div>
+
+                              <div className="mt-1 space-y-1 pt-1 border-t border-dashed border-gray-200/50">
+                                {cellLesson.room && (
+                                  <div className="text-[9px] text-gray-500 flex items-center gap-0.5 truncate">
+                                    <MapPin className="w-2.5 h-2.5 text-[#5B2596]" />
+                                    <span>{cellLesson.room}</span>
+                                  </div>
+                                )}
+                                {cellLesson.notes && (
+                                  <div className="text-[8px] text-gray-400 truncate leading-tight" title={cellLesson.notes}>
+                                    {cellLesson.notes}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Hover actions buttons inside occupied card */}
+                              {activeRole !== 'assistant' && (
+                                <div className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity bg-white border border-gray-100 p-1 rounded-xl shadow-lg no-print">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteLesson(cellLesson.id, e)}
+                                    className="p-1 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                                    title="حذف الحصة"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDuplicateLesson(cellLesson, e)}
+                                    className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                    title="نسخ الحصة لليوم التالي"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEditForm(cellLesson);
+                                    }}
+                                    className="p-1 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                                    title="تعديل"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="group h-full flex flex-col items-center justify-center p-2 rounded-2xl border border-dashed border-gray-200 hover:border-[#5B2596] hover:bg-[#F5F3FF]/40 transition-all text-gray-300 hover:text-[#5B2596]">
+                              <Plus className="w-5 h-5 opacity-40 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                              <span className="text-[9px] mt-1 font-bold opacity-0 group-hover:opacity-100 transition-opacity">إضافة حصة</span>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 📝 POPUP FORM MODAL (ADD / EDIT LESSON) */}
+      {isFormOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+          <div className="bg-white rounded-3xl border border-[#D9D3F0] max-w-lg w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-right">
+            <div className="bg-gradient-to-r from-[#5B2596] to-[#3E176D] p-5 text-white flex justify-between items-center">
+              <h3 className="text-sm sm:text-base font-black flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#E9E6FA]" />
+                {editingLessonId ? 'تعديل الحصة المدرسية المجدولة' : 'جدولة حجز حصة مدرسية جديدة'}
+              </h3>
+              <button 
+                onClick={closeForm}
+                className="p-1 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLesson} className="p-6 space-y-4">
+              
+              {/* Day & Period Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">اليوم الدراسي</label>
+                  <select
+                    value={formDay}
+                    onChange={(e) => setFormDay(e.target.value)}
+                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                  >
+                    {IRAQI_DAYS.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">توقيت الحصة</label>
+                  <select
+                    value={formPeriod}
+                    onChange={(e) => setFormPeriod(Number(e.target.value))}
+                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                  >
+                    {SCHOOL_PERIODS.map((p, idx) => (
+                      <option key={idx} value={idx}>{p.name} ({p.start} - {p.end})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Class, Division & Subject */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-700 mb-1">المادة الدراسية</label>
+                  <input
+                    type="text"
+                    value={formSubject}
+                    onChange={(e) => setFormSubject(e.target.value)}
+                    placeholder="مثال: الرياضيات، الفيزياء"
+                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">الشعبة</label>
+                  <select
+                    value={formDivision}
+                    onChange={(e) => setFormDivision(e.target.value)}
+                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                  >
+                    {profile.divisions.map(div => (
+                      <option key={div} value={div}>شعبة {div}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Grade Class Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">الصف والمرحلة الدراسية</label>
+                <select
+                  value={formGrade}
+                  onChange={(e) => setFormGrade(e.target.value)}
+                  className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                >
+                  {profile.grades.map(grade => (
+                    <option key={grade} value={grade}>{grade}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Teacher and Room */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">الأستاذ المدرس</label>
+                  <select
+                    value={formTeacher}
+                    onChange={(e) => setFormTeacher(e.target.value)}
+                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                  >
+                    <option value="">بدون مدرس</option>
+                    {profile.teachers.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">القاعة أو الغرفة</label>
+                  <select
+                    value={formRoom}
+                    onChange={(e) => setFormRoom(e.target.value)}
+                    className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-gray-800 font-bold"
+                  >
+                    <option value="">بدون قاعة</option>
+                    {profile.rooms.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Lesson Type */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">نوع الدرس</label>
+                <div className="grid grid-cols-5 gap-1.5 text-[10px] text-center">
+                  {[
+                    { label: 'شرح عادي', value: 'study' },
+                    { label: 'مراجعة', value: 'review' },
+                    { label: 'حل أسئلة', value: 'solve' },
+                    { label: 'امتحان', value: 'exam' }
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormType(opt.value as any)}
+                      className={`py-2 px-1 rounded-xl font-bold border transition-all ${
+                        formType === opt.value 
+                          ? 'bg-[#5B2596] border-[#5B2596] text-white shadow' 
+                          : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات إدارية أو دراسية</label>
+                <textarea
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="الفصل المستهدف، مفردات الحصة، إلخ."
+                  rows={2}
+                  className="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-white text-[#1D2433] leading-relaxed"
+                />
+              </div>
+
+              {/* Conflict Warnings inside Form */}
+              {conflictWarning && (
+                <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800 animate-pulse">
+                  <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold block">🚨 تعارض في الجدولة:</span>
+                    <span>{conflictWarning}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit / Cancel Buttons */}
+              <div className="flex gap-2.5 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-[#5B2596] hover:bg-[#3E176D] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-[#5B2596]/20"
+                >
+                  {editingLessonId ? 'حفظ التحديثات' : 'جدولة الحصة الآن'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition-all"
+                >
+                  إلغاء الحجز
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST ALERT BANNER */}
       {toastMessage && (
-        <div className="no-print bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
-          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="fixed bottom-5 left-5 bg-[#3E176D] text-white px-5 py-3 rounded-2xl shadow-2xl z-50 animate-bounce text-xs font-bold flex items-center gap-2 no-print">
+          <CheckCircle className="w-4 h-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* MAIN TWO COLUMNS */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* RIGHT COLUMN: BOOKING FORM (Settings right) */}
-        <div className="no-print col-span-1 lg:col-span-4 space-y-6">
-          {isAddingLesson ? (
-            <div className="bg-white rounded-3xl border border-[#D9D3F0] p-6 shadow-sm space-y-5 animate-in fade-in duration-200">
-              <div className="border-b border-gray-100 pb-3 flex justify-between items-center">
-                <span className="font-extrabold text-sm text-[#3E176D] flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#5B2596]" />
-                  {editingLessonId ? 'تعديل بيانات المحاضرة' : 'حجز ومحاكاة محاضرة جديدة'}
-                </span>
-                <button onClick={resetForm} className="text-gray-500 hover:text-rose-600 text-xs font-bold">إلغاء</button>
-              </div>
-
-              {errorMessage && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold space-y-1">
-                  <div className="flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4 text-rose-600" />
-                    <span>تنبيه خطأ في الجدولة</span>
-                  </div>
-                  <p className="text-[10px] text-rose-700 leading-relaxed">{errorMessage}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmitLesson} className="space-y-4 text-xs">
-                {/* Subject name */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">المادة الدراسية *</label>
-                  <input
-                    type="text"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="مثال: الرياضيات، الفيزياء، كيمياء السادس"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-gray-50 font-semibold text-[#1D2433]"
-                    required
-                  />
-                </div>
-
-                {/* Class */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">الصف الدراسي المستهدف</label>
-                  <select
-                    value={gradeClass}
-                    onChange={(e) => setGradeClass(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-white font-semibold"
-                  >
-                    <option value="السادس العلمي">السادس العلمي</option>
-                    <option value="السادس الأدبي">السادس الأدبي</option>
-                    <option value="الثالث المتوسط">الثالث المتوسط</option>
-                    <option value="السادس الابتدائي">السادس الابتدائي</option>
-                    <option value="أخرى / خارجي">دورة خارجية مخصصة</option>
-                  </select>
-                </div>
-
-                {/* Student or Group group */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">اسم الطالب أو المجموعة الخصوصي *</label>
-                  <input
-                    type="text"
-                    value={studentGroup}
-                    onChange={(e) => setStudentGroup(e.target.value)}
-                    placeholder="مثال: مجموعة أ المنصور، الطالب مصطفى الحلي"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-gray-50 font-semibold text-[#1D2433]"
-                    required
-                  />
-                </div>
-
-                {/* Lesson Title */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">عنوان المحاضرة أو الموضوع</label>
-                  <input
-                    type="text"
-                    value={lessonTitle}
-                    onChange={(e) => setLessonTitle(e.target.value)}
-                    placeholder="مثال: مبرهنة ديموافر وتطبيقاتها"
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-gray-50"
-                  />
-                </div>
-
-                {/* Day and Date */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-bold text-[#1D2433] mb-1">اليوم</label>
-                    <select
-                      value={day}
-                      onChange={(e) => setDay(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-white font-semibold"
-                    >
-                      {IRAQI_DAYS.map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-[#1D2433] mb-1">التاريخ</label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-2 py-1.5 rounded-xl border border-[#D9D3F0]"
-                    />
-                  </div>
-                </div>
-
-                {/* Times */}
-                <div className="grid grid-cols-2 gap-2 font-mono">
-                  <div>
-                    <label className="block font-bold text-[#1D2433] mb-1 text-right">وقت البدء (٢٤س)</label>
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full p-2 border border-[#D9D3F0] rounded-xl text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-[#1D2433] mb-1 text-right">وقت النهاية (٢٤س)</label>
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full p-2 border border-[#D9D3F0] rounded-xl text-center font-bold"
-                    />
-                  </div>
-                </div>
-
-                {/* Recurrence */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">تكرار الحجز</label>
-                  <select
-                    value={recurrence}
-                    onChange={(e) => setRecurrence(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-white font-semibold"
-                  >
-                    <option value="once">حجز لمرة واحدة فقط</option>
-                    <option value="weekly">تكرار أسبوعي مستمر في نفس الموعد</option>
-                  </select>
-                </div>
-
-                {/* Location type */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">نوع وموقع الحضور</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLocationType('physical')}
-                      className={`p-2 rounded-xl border font-bold text-center transition-all ${locationType === 'physical' ? 'border-[#5B2596] bg-[#E9E6FA] text-[#3E176D]' : 'border-gray-200 bg-white'}`}
-                    >
-                      حضوري بالفروع
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLocationType('online')}
-                      className={`p-2 rounded-xl border font-bold text-center transition-all ${locationType === 'online' ? 'border-[#5B2596] bg-[#E9E6FA] text-[#3E176D]' : 'border-gray-200 bg-white'}`}
-                    >
-                      أونلاين (عبر الإنترنت)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Link online if online */}
-                {locationType === 'online' && (
-                  <div>
-                    <label className="block font-bold text-[#1D2433] mb-1">رابط الاجتماع / البث أونلاين</label>
-                    <input
-                      type="text"
-                      value={meetLink}
-                      onChange={(e) => setMeetLink(e.target.value)}
-                      placeholder="https://meet.google.com/abc-defg-hij"
-                      className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] bg-gray-50"
-                    />
-                  </div>
-                )}
-
-                {/* Notes */}
-                <div>
-                  <label className="block font-bold text-[#1D2433] mb-1">ملاحظات الحجز</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="كتابة متطلبات المذاكرة أو الدفاتر المطلوبة للمحاضرة..."
-                    className="w-full px-3 py-2 rounded-xl border border-[#D9D3F0] resize-none"
-                    rows={2}
-                  />
-                </div>
-
-                <div className="pt-2 flex gap-2">
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 bg-[#5B2596] text-white font-extrabold rounded-xl hover:opacity-95 shadow cursor-pointer text-center"
-                  >
-                    {editingLessonId ? 'حفظ التحديثات' : 'تأكيد وحفظ موعد الحجز'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300"
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <div className="bg-white rounded-3xl border border-[#D9D3F0] p-6 text-center space-y-4 shadow-sm">
-              <Users className="w-10 h-10 text-[#5B2596] mx-auto opacity-70" />
-              <div className="space-y-1">
-                <span className="block text-sm font-black text-[#3E176D]">ابدأ بتنظيم وإضافة محاضراتك الخصوصي</span>
-                <p className="text-[11px] text-[#687084]">سيقوم تطبيق مدرسي بفحص التوقيت آلياً لتفادي أي تضارب أو حجز مكرر في نفس اللحظة.</p>
-              </div>
-              <button
-                onClick={() => setIsAddingLesson(true)}
-                className="w-full py-3 bg-[#5B2596] text-white rounded-2xl font-bold text-xs hover:bg-[#3E176D] transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow"
-              >
-                <Plus className="w-4 h-4" />
-                <span>حجز وجدولة محاضرة جديدة</span>
-              </button>
-            </div>
-          )}
-
-          {/* Quick Print guide */}
-          <div className="bg-[#F5F3FF] border border-[#D9D3F0] p-4 rounded-3xl space-y-2">
-            <span className="font-extrabold text-xs text-[#3E176D] flex items-center gap-1">
-              <Printer className="w-4 h-4" />
-              طباعة الجدول الموحد
-            </span>
-            <p className="text-[10px] text-gray-600 leading-relaxed">
-              تستطيع طباعة جدول المدرس الخصوصي بالكامل بصيغة A4 منسقة ومطبوعة من خلال النقر على زر الطباعة المعتمد في الزاوية اليسرى.
-            </p>
-            <button
-              onClick={handlePrintTeacher}
-              className="w-full py-2 bg-white text-[#3E176D] border border-[#D9D3F0] text-xs font-bold rounded-xl hover:bg-gray-50"
-            >
-              فتح نافذة الطباعة / تصدير PDF
-            </button>
-          </div>
-        </div>
-
-        {/* LEFT COLUMN: WEEKLY GRID PREVIEW (Preview left) */}
-        <div className="col-span-1 lg:col-span-8 space-y-5">
-          <div className="no-print flex justify-between items-center flex-wrap gap-2">
-            <span className="text-sm font-extrabold text-[#3E176D] flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-[#5B2596]" />
-              قائمة المحاضرات والدروس المجدولة للأسبوع ({activeLessons.length} حصة)
-            </span>
-            <span className="text-[11px] text-gray-500">تم حجز المحاضرات بنظام التسلسل الأسبوعي العراقي.</span>
-          </div>
-
-          {/* Printable visual structure */}
-          <div className="bg-white rounded-3xl border border-[#D9D3F0] p-6 shadow-sm space-y-4">
-            {activeLessons.length === 0 ? (
-              <div className="p-12 text-center border-2 border-dashed border-gray-100 rounded-2xl space-y-2">
-                <Users className="w-12 h-12 text-[#D9D3F0] mx-auto" />
-                <p className="text-xs font-extrabold text-gray-600">لا توجد أي محاضرات مسجلة في هذا الجدول الدراسي للمدرس حالياً.</p>
-                <p className="text-[10px] text-gray-400">انقر على زر "حجز وجدولة محاضرة جديدة" في اليمين لإدراج أولى دوراتك الخصوصية.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Visual day-by-day stack */}
-                {IRAQI_DAYS.map((iraqiDay) => {
-                  const dayLessons = activeLessons.filter(l => l.day === iraqiDay);
-                  if (dayLessons.length === 0) return null;
-
-                  return (
-                    <div key={iraqiDay} className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                      <div className="bg-[#F5F3FF] px-4 py-2.5 border-b border-gray-100 flex justify-between items-center">
-                        <span className="text-xs font-extrabold text-[#3E176D]">{iraqiDay}</span>
-                        <span className="text-[10px] text-[#687084] font-semibold">{dayLessons.length} حصص مقررة</span>
-                      </div>
-
-                      <div className="divide-y divide-gray-50 bg-white">
-                        {dayLessons.map((les) => (
-                          <div key={les.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:bg-slate-50/50">
-                            
-                            {/* Class info */}
-                            <div className="space-y-1.5 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="px-2.5 py-0.5 text-[10px] font-black rounded-lg bg-[#E9E6FA] text-[#3E176D]">
-                                  {les.subject}
-                                </span>
-                                <span className="text-xs font-bold text-gray-500">
-                                  الصف: {les.gradeClass}
-                                </span>
-                                {les.recurrence === 'weekly' && (
-                                  <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-50 text-emerald-800 font-extrabold">
-                                    🔄 تكرار أسبوعي مستمر
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="font-extrabold text-xs sm:text-sm text-[#1D2433]">
-                                الموضوع: {les.lessonTitle || 'مراجعة عامة وتلخيص'}
-                              </div>
-
-                              <div className="text-[11px] text-[#687084] font-semibold flex items-center gap-1">
-                                <Users className="w-3.5 h-3.5 text-purple-600" />
-                                <span>اسم المجموعة / الطالب: <strong className="text-[#3E176D]">{les.studentGroup}</strong></span>
-                              </div>
-                            </div>
-
-                            {/* Time & Venue */}
-                            <div className="flex flex-col sm:items-end gap-1.5 shrink-0 text-right">
-                              <span className="text-xs font-bold text-slate-800 font-mono flex items-center gap-1 bg-slate-50 border border-gray-100 px-2 py-1 rounded-lg">
-                                <Clock className="w-3.5 h-3.5 text-purple-600" />
-                                {les.startTime} - {les.endTime} ({les.duration} دقيقة)
-                              </span>
-
-                              <div className="text-[10px] font-bold flex items-center gap-1 justify-end">
-                                {les.locationType === 'online' ? (
-                                  <span className="text-sky-700 bg-sky-50 border border-sky-100 px-2 py-0.5 rounded flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" />
-                                    أونلاين: {les.meetLink ? <a href={les.meetLink} target="_blank" rel="noopener noreferrer" className="underline font-mono text-[9px]">{les.meetLink.substring(0, 25)}...</a> : 'رابط غير مضاف'}
-                                  </span>
-                                ) : (
-                                  <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    حضور بمقر المعهد الخصوصي
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Operations */}
-                            <div className="no-print flex items-center gap-1 border-t sm:border-t-0 pt-2 sm:pt-0 justify-end">
-                              <button
-                                onClick={() => handleStartEdit(les)}
-                                className="p-1.5 hover:bg-[#E9E6FA] rounded-lg text-[#5B2596]"
-                                title="تعديل تفاصيل المحاضرة"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDuplicateLesson(les)}
-                                className="p-1.5 hover:bg-[#E9E6FA] rounded-lg text-emerald-600"
-                                title="تكرار ونسخ لليوم القادم"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteLesson(les.id)}
-                                className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-600"
-                                title="إلغاء وحذف الحجز"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* PRINT-ONLY FLUID CONTAINER */}
-      <div className="print-only hidden p-6">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-black text-[#3E176D] tracking-tight font-sans mb-1">تطبيق مدرسي</h1>
-          <p className="text-sm text-[#687084] font-bold font-sans"># جدول المدرس الخصوصي والمحاضرات الموحدة</p>
-        </div>
-
-        <div className="border border-[#D9D3F0] p-4 rounded-xl bg-[#F5F3FF] text-xs mb-6 grid grid-cols-2 gap-4">
-          <div>
-            <span className="text-[#687084] block font-bold mb-1">اسم الجدول:</span>
-            <span className="text-[#1D2433] text-sm font-bold">{activeScheduleObj?.name || '—'}</span>
-          </div>
-          <div>
-            <span className="text-[#687084] block font-bold mb-1">تاريخ طباعة التقرير الموحد:</span>
-            <span className="text-[#1D2433] text-sm font-bold">{new Date().toLocaleDateString('ar-IQ')}</span>
-          </div>
-        </div>
-
-        <table className="w-full border-collapse border border-[#D9D3F0] text-center text-xs">
-          <thead>
-            <tr className="bg-[#F5F3FF]">
-              <th className="border border-[#D9D3F0] p-3 font-bold text-[#3E176D] w-1/4">اليوم</th>
-              <th className="border border-[#D9D3F0] p-3 font-bold text-[#3E176D] w-3/4">تفاصيل المحاضرات المجدولة والطلاب</th>
-            </tr>
-          </thead>
-          <tbody>
-            {IRAQI_DAYS.map((iraqiDay) => {
-              const dayLessons = activeLessons.filter(l => l.day === iraqiDay);
-              if (dayLessons.length === 0) return null;
-
-              return (
-                <tr key={iraqiDay}>
-                  <td className="border border-[#D9D3F0] p-3 font-bold text-[#3E176D] bg-[#F5F3FF]/30">{iraqiDay}</td>
-                  <td className="border border-[#D9D3F0] p-3 text-right">
-                    <div className="space-y-3">
-                      {dayLessons.map((les, idx) => (
-                        <div key={les.id} className="p-2 border-b border-gray-100 last:border-b-0">
-                          <div className="font-extrabold text-[#3E176D] text-xs">
-                            {idx + 1}. مادة {les.subject} — {les.lessonTitle || 'مراجعة وتلخيص'}
-                          </div>
-                          <div className="text-[10px] text-gray-600 font-bold">
-                            👨‍🎓 اسم الطالب/المجموعة: {les.studentGroup} | ⏱️ التوقيت: {les.startTime} - {les.endTime} | 📍 الحضور: {les.locationType === 'online' ? 'أونلاين عبر البث' : 'حضوري بمقر المعهد'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
     </div>
   );
 };
-export default TeacherMode;

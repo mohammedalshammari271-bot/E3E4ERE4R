@@ -1,7 +1,7 @@
 import { Schedule, SUBJECT_COLORS } from '../types';
 
 /**
- * High-DPI Canvas exporter for "تطبيق مدرستي" schedule.
+ * High-DPI Canvas exporter for "تطبيق مدرسي" schedule.
  * Renders the schedule table beautifully to PNG format.
  */
 export const exportScheduleToPNG = (schedule: Schedule): Promise<string> => {

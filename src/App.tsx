@@ -20,20 +20,21 @@ import {
 } from './utils/db';
 import { generateDailySchedule, generateWeeklySchedule, generateRevisionPlan } from './utils/generators';
 import { SUBJECTS_BY_GRADE, MINISTERIAL_SUBJECTS_ORDER, CURRICULUM_TREES } from './constants/subjects';
-import { Sparkles, Calendar, BookOpen, Clock, AlertCircle, Plus, GraduationCap, CheckCircle, Flame, Undo, Trash2, ArrowRight, BookMarked, Award, CheckSquare, RefreshCw, X, MessageSquare, Users } from 'lucide-react';
+import { Sparkles, Calendar, BookOpen, Clock, AlertCircle, Plus, GraduationCap, CheckCircle, Flame, Undo, Trash2, ArrowRight, BookMarked, Award, CheckSquare, RefreshCw, X, MessageSquare, Users, Layers } from 'lucide-react';
 
 // New Feature Imports
 import { TeacherMode } from './components/TeacherMode';
 import { CurriculumTreeEditor } from './components/CurriculumTreeEditor';
 import { SmartAssistant } from './components/SmartAssistant';
+import { ExamHallOrganizer } from './components/ExamHallOrganizer';
 
 export default function App() {
   // Profiles and Onboarding State
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [isOnboarding, setIsOnboarding] = useState<boolean>(true);
 
-  // New User Role State ('student' | 'teacher')
-  const [userRole, setUserRole] = useState<'student' | 'teacher'>('student');
+  // New User Role State ('student' | 'teacher' | 'exam_organizer')
+  const [userRole, setUserRole] = useState<'student' | 'teacher' | 'exam_organizer'>('student');
 
   // Schedules state
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -1065,12 +1066,12 @@ export default function App() {
       <main className="no-print flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
         {/* ROLE SWITCHER BAR */}
-        <div className="bg-white border border-[#D9D3F0] p-1.5 rounded-2xl shadow-sm flex items-center justify-between gap-4">
+        <div className="bg-white border border-[#D9D3F0] p-1.5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 pr-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs font-black text-[#3E176D]">تطبيق مدرسي • اختر وضع الاستخدام:</span>
           </div>
-          <div className="flex bg-gray-100 p-1 rounded-xl">
+          <div className="flex flex-wrap bg-gray-100 p-1 rounded-xl gap-1 justify-center">
             <button
               onClick={() => {
                 setUserRole('student');
@@ -1097,12 +1098,29 @@ export default function App() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>وضع المدرس (جدول المدرس)</span>
+              <span>وضع الكادر التدريسي</span>
+            </button>
+            <button
+              onClick={() => {
+                setUserRole('exam_organizer');
+                saveUserRole('exam_organizer');
+              }}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                userRole === 'exam_organizer'
+                  ? 'bg-white text-[#3E176D] shadow-sm font-black'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>منظّم القاعات الامتحانية الذكي 🏫</span>
             </button>
           </div>
         </div>
 
-        {userRole === 'teacher' ? (
+        {userRole === 'exam_organizer' ? (
+          /* EXAM HALL ORGANIZER VIEW */
+          <ExamHallOrganizer />
+        ) : userRole === 'teacher' ? (
           /* TEACHER MODE VIEW */
           <TeacherMode />
         ) : (
